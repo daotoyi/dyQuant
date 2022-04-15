@@ -2,7 +2,6 @@
 Author: daoyi
 Date: 2021-08-18 13:33:31
 LastEditTime: 2021-08-23 07:45:44
-LastEditors: Please set LastEditors
 Description: Quant strategy
 '''
 import backtrader as bt

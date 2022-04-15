@@ -4,7 +4,6 @@ Date: 2021-06-21 08:02:01
 LastEditTime: 2021-10-02 08:59:29
 LastEditors: daoyi
 Description: In User Settings Edit
-FilePath: \Python\pyQt5\pyQt5Template.py
 '''
 
 import sys

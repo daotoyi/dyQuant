@@ -13,6 +13,10 @@ Main programe dyQuant/monitor.
 
 Strategy used for monitor.
 
+## underlying
+
+Underlying list, Strict json formate.
+
 ## pyQt5Template
 
 The interface framework imitating vnpy.

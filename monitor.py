@@ -2,21 +2,24 @@
 Author: daoyi
 Date: 2021-08-05 15:30:25
 LastEditTime: 2021-10-05 17:32:39
-LastEditors: daoyi
 Description: Quant Strategy monitor trade time.
 '''
 
 import datetime, time
 import pandas as pd
-from pysnooper.utils import shitcode
 import pysnooper as snp
+import trading_calendars as tc
+from pysnooper.utils import shitcode
+from win10toast import ToastNotifier
 import logging
 import schedule
-import trading_calendars as tc
+import requests
 import sys, io, os
 import psutil
+import json
 import ctypes
 import threading
+import schedule
 
 import pywinauto
 import pyautogui
@@ -33,71 +36,14 @@ from email.mime.text import MIMEText
 from email.mime.image import MIMEImage
 from email.mime.multipart import MIMEMultipart # Collecting multiple objects
 
-from moniStrategy import Securities, Futures, Options
+from moniStrategy import Stocks, Futures, Options
 
-logging.basicConfig(level=logging.DEBUG,format='[%(asctime)s] %(filename)s [line:%(lineno)d] \
+logging.basicConfig(level=logging.INFO,format='[%(asctime)s] %(filename)s [line:%(lineno)d] \
 [%(levelname)s]  %(message)s', datefmt='%Y-%m-%d(%a) %H:%M:%S')
 
 # logging.basicConfig(
 #     level=logging.DEBUG,format='[%(asctime)s] [%(levelname)s] %(message)s', datefmt='%Y-%m-%d %H:%M:%S'
 # )
-
-class Monitor():
-
-    def __init__(self) -> None:
-        self.lock= threading.RLock()
-        self.trade_time = None
-        now = datetime.datetime.now()
-        now_time = now.strftime('%Y-%m-%d %H:%M:%S')
-        AMclose_time = now.strftime('%Y-%m-%d') + ' 11:30:01'
-        PMopen_time  = now.strftime('%Y-%m-%d') + ' 13:00:00'
-        PMclose_time = now.strftime('%Y-%m-%d') + ' 15:00:01'
-
-        self.now_datetime = datetime.datetime.strptime(now_time, '%Y-%m-%d %H:%M:%S')
-        self.AMclose_datetime = datetime.datetime.strptime(AMclose_time, '%Y-%m-%d %H:%M:%S')
-        self.PMopen_datetime  = datetime.datetime.strptime(PMopen_time,  '%Y-%m-%d %H:%M:%S')
-        self.PMclose_datetime = datetime.datetime.strptime(PMclose_time, '%Y-%m-%d %H:%M:%S')
-
-    # @snp.snoop(depth=1, prefix="tradeTime: ")
-    def tradeTime(self):
-        now_AMclose = (self.now_datetime - self.AMclose_datetime).total_seconds()
-        now_PMopen  = (self.now_datetime - self.PMopen_datetime).total_seconds()
-        now_PMclose = (self.now_datetime - self.PMclose_datetime).total_seconds()
-
-        # if now_AMclose > 0 and now_PMopen < 0 or now_PMclose > 0: #* 9:30-24:00
-        if now_AMclose > 0 and now_PMopen < 0 : #* 9:30-15:00
-            self.trade_time = False
-        else:
-            self.trade_time = True 
-        return self.trade_time
-
-    # @snp.snoop(depth=1, prefix="monitor: ")
-    def monitor(self, tradeCode, symType):
-        opt = {
-            'Securities' : Securities,
-            'Futures'    : Futures,
-            'Options'    : Options
-        }
-
-        if self.tradeTime() == True:
-            logging.debug(opt[symType])
-            msg = opt[symType](tradeCode).main(tradeCode)
-            if msg:
-                self.lock.acquire()
-                # WeChat().send(userName='daotoyi_net', message=msg[0])
-                Mail().send(message=msg)
-                self.lock.release()
-
-    # @snp.snoop(depth=1, prefix="run: ")
-    def run(self, tradeCode, symType):
-        while True:
-            self.monitor(tradeCode, symType)
-            now_PMclose = (self.now_datetime - self.PMclose_datetime).total_seconds()
-            if now_PMclose > 0:
-                logging.info('A-Stock market close, exit thread monitor.')
-                break
-            # time.sleep(15)
-
 class WeChat():
     def __init__(self, exeName: str='WeChat.exe') -> None:
         pid = self.getPID(exeName)
@@ -117,14 +63,14 @@ class WeChat():
     def getWindow(self, pid: int):
         app = pywinauto.application.Application(backend='uia').connect(process=pid)
         # app = Application(backend="uia").start(r'C:\Program Files (x86)\Tencent\WeChat\WeChat.exe')
-        
+
         window = app.window(class_name='WeChatMainWndForPC')
         # window = app['微信测试版']
         return window
 
-    def send(self, userName, message, msgType: str='Text'):
+    def send(self, message, userName: str='daotoyi', msgType: str='Text'):
         self.searchUser(userName)
-        
+
         def sendText(msg):
             # self.win.type_keys(msg)
             self.sendToClip(dataType=win32con.CF_UNICODETEXT, data=msg)
@@ -142,7 +88,7 @@ class WeChat():
             time.sleep(1)
             pyautogui.hotkey('ctrl', 'v')
             pyautogui.hotkey('enter')
-        
+
         def sendImage2(msg):
             img=PIL.Image.open(msg)
             img.save('tmp.bmp')
@@ -207,8 +153,8 @@ class WeChat():
         CtrlF()
         #pyautogui.hotkey('ctrl', 'f')
         CtrlV()
-        #pyautogui.hotkey('ctrl', 'v')   
-        
+        #pyautogui.hotkey('ctrl', 'v')
+
         time.sleep(1)
         #Enter()
         pyautogui.press('enter')
@@ -226,6 +172,7 @@ class WeChat():
         win32clipboard.SetClipboardData(dataType, data)
         win32clipboard.CloseClipboard()
 
+
 class QQ():
     def send(self, userName, msg):
 
@@ -234,7 +181,7 @@ class QQ():
             win32clipboard.EmptyClipboard()
             win32clipboard.SetClipboardData(win32con.CF_UNICODETEXT, msg)
             win32clipboard.CloseClipboard()
-        
+
         _sendToClip()
         handle = win32gui.FindWindow(None, userName) # get window handle
         win32gui.SendMessage(handle, 770, 0, 0) # fill msg 
@@ -245,7 +192,7 @@ class QQ():
                 win32gui.SendMessage(handle, 770, 0, 0)
                 win32gui.SendMessage(handle, win32con.WM_KEYDOWN, win32con.VK_RETURN, 0)
                 time.sleep(5)
-        
+
         #? sendAlways()
 
 class SMS():
@@ -298,7 +245,7 @@ class Mail():
 
         msg = MIMEMultipart('related')
         # msg = MIMEText(message)
-        
+
         msg["Subject"] = Header(title, 'utf-8')
         msg["From"] = sender
         msg["To"] = receivers
@@ -357,49 +304,160 @@ class Mail():
         atta["Content-Disposition"] = 'attachment; filename="sample.xlsx"'
         message.attach(atta)
 
+
+class IFTTT():
+    def send(self, message):
+        event_name  = 'dyQuant'
+        key = 'bMhBKbwkXMxADTWok23HtB'
+        url = f"https://maker.ifttt.com/trigger/{event_name}/with/key/{key}"
+        payload = {
+            "value1": message[0],
+            "value2": message[1],
+            "value3": message[2],
+        }
+        headers = {'Content-Type': "application/json"}
+        response = requests.request("POST", url, data=json.dumps(payload), headers=headers)
+        # response = requests.post(url, json=payload)
+        logging.info(response.text)
+
+
+class Toast():
+    def send(self, message):
+        headers = message[0]
+        text = message[1:]
+        toaster = ToastNotifier()
+        # toaster.show_toast('title', 'msg', duration=10, threaded=True)
+        toaster.show_toast(f"{header}", f"{text}", icon_path="img/toast.ico", duration=5, threaded=True)
+
+
+class TradeDateTime():
+    def __init__(self) -> None:
+        now = datetime.datetime.now()
+        self.now_time = now.strftime('%Y-%m-%d %H:%M:%S')
+        self.now_date = now.strftime('%Y-%m-%d')
+
+        global TRADE_DATE
+        global TRADE_TIME
+        sse = tc.get_calendar("SSE")
+        TRADE_DATE = sse.is_session(pd.Timestamp(self.now_date))
+
+        self.AMclose_time = now.strftime('%Y-%m-%d') + ' 11:30:01'
+        self.PMopen_time  = now.strftime('%Y-%m-%d') + ' 13:00:00'
+        self.PMclose_time = now.strftime('%Y-%m-%d') + ' 15:00:01'
+
+        self.now_datetime = datetime.datetime.strptime(self.now_time, '%Y-%m-%d %H:%M:%S')
+        self.AMclose_datetime = datetime.datetime.strptime(self.AMclose_time, '%Y-%m-%d %H:%M:%S')
+        self.PMopen_datetime  = datetime.datetime.strptime(self.PMopen_time,  '%Y-%m-%d %H:%M:%S')
+        self.PMclose_datetime = datetime.datetime.strptime(self.PMclose_time, '%Y-%m-%d %H:%M:%S')
+
+        now_AMclose = (self.now_datetime - self.AMclose_datetime).total_seconds()
+        now_PMopen  = (self.now_datetime - self.PMopen_datetime).total_seconds()
+        now_PMclose = (self.now_datetime - self.PMclose_datetime).total_seconds()
+
+    # @snp.snoop(depth=1, prefix="tradeTime: ")
+    # def tradeTime(self):
+        # if now_AMclose > 0 and now_PMopen < 0 or now_PMclose > 0: #* 9:30-24:00
+        if now_AMclose > 0 and now_PMopen < 0 : #* 9:30-15:00
+            TRADE_TIME = False
+        else:
+            TRADE_TIME = True
+
+
+class Monitor():
+    def __init__(self) -> None:
+        self.lock= threading.RLock()
+        self.trade_time = None
+
+    # @snp.snoop(depth=1, prefix="monitor: ")
+    def monitor(self, symType, tradeCode, device):
+        opt_market = {
+            "Stocks"  : Stocks,
+            "Futures" : Futures,
+            "Options" : Options
+        }
+        opt_device = {
+            'WeChat' : WeChat,
+            'Mial'   : Mail,
+            'Toast'  : Toast, ## [Toast().toast()] Thread  [Monitor().run], raise ERROR[no attribute 'classAtom'].
+            'IFTTT'  : IFTTT
+        }
+
+        if TRADE_TIME == True:
+            logging.debug(opt_market[symType])
+            content = opt_market[symType]().main(tradeCode)  # opt[]().test()
+            if content:
+                logging.debug(content)
+                self.lock.acquire()
+                opt_device[device]().send(message=content)
+                    # Toast().send(message=content)
+                    # WeChat().send(message=content)
+                    # Mail().send(message=content)
+                    # IFTTT().send(message=content)
+                self.lock.release()
+
+    # @snp.snoop(depth=1, prefix="run: ")
+    def run(self, symType, tradeCode, device):
+        while True:
+            self.monitor(symType, tradeCode, device)
+            now_PMclose = (TradeDateTime().now_datetime - TradeDateTime().PMclose_datetime).total_seconds()
+            if now_PMclose > 0:
+                logging.info('A-Stock market close, exit thread monitor.')
+                break
+            time.sleep(10)
+
+
 # @snp.snoop(depth=1, prefix="main: ")
-def main():
-    set = {
-        '510050'  : 'Securities',
-        '10003527': 'Options'
-    }
-        # 'A50'     : 'Futures',
-        # 'HSI'     : 'Futures',
+class Main():
+    def __init__(self):
+        # initial global variable TRADE_DATE TRADE_TIME
+        TradeDateTime()
+        try:
+            with open('underlying.json') as j:
+                self.set = json.load(j)
+        except:
+            self.set = {
+                "Stocks"  : "000001",
+                "Futures" : "H2206",
+                "Options" : "u2205C432"
+            }
+        logging.info(self.set)
 
-    now = datetime.datetime.now()
-    now_time = now.strftime('%Y-%m-%d %H:%M:%S')
-    now_date = now.strftime('%Y-%m-%d')
-    sse = tc.get_calendar("SSE")
-    trade_date = sse.is_session(pd.Timestamp(now_date))
-
-    def start():
-        if not trade_date:
+    def start(self):
+        if not TRADE_DATE:
+            # now_date = datetime.datetime.now().strftime('%Y-%m-%d')
+            now_date = TradeDateTime().now_date
             print(f'{now_date} is not trade date, monitor will not work.')
             return
-        
-        print(f'{now_time}: Monitor start:')
-        threads = []
-        for symbol, symType in set.items():
-            func = Monitor().run
-            thread = threading.Thread(target=func, args=(symbol, symType))
-            logging.info(f'==> thread-{symbol} start run ...')
-            thread.start()
-            # thread.join()
-            threads.append(thread)
-    start() 
 
-    # schedule.every().day.at("09:30").do(start)
-    # while True:
-    #     schedule.run_pending()
-    #     time.sleep(1)
-        # if not TRADE_FLAG:
-        #    schedule.clear() 
+        # now_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        now_time = TradeDateTime().now_time
+        print(f'{now_time} Monitor start:')
+        device = 'IFTTT' # IFTTT, WeCaht, Mail, Toast
+
+        os.environ['NUMEXPR_MAX_THREADS'] = '8'
+        threads = []
+        func = Monitor().run
+        for symType, symbols in self.set.items():
+            for symbol in symbols:
+                thread = threading.Thread(target=func, args=(symType, symbol, device))
+                logging.info(f'==> thread-{symType}-{symbol} start run ...')
+                thread.start()
+                # thread.join()
+                threads.append(thread)
+
+    def sked(self):
+        schedule.every().day.at("09:30").do(start)
+        while True:
+            schedule.run_pending()
+            time.sleep(1)
+            if not TRADE_DATE:
+               schedule.clear()
+               time.sleep(60 * 60 * 24)
+
 
 if __name__ == '__main__':
+    # test_msg = ['A50 UP 3%','A50 Done!','Good Lucky!!']
     # WeChat().send(userName='filehelper', message=r'tmp.py', msgType='Text')
+    Main().start()
 
-    # msgl = ['A50 UP 3%','A50 Done!','Good Lucky!!']
-    # Mail().send(receiver='1392429831@qq.com', message=msgl)
-    
-    main()
-    
+    # Main().sked()
