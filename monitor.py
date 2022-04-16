@@ -416,11 +416,18 @@ class Main():
                 self.set = json.load(j)
         except:
             self.set = {
-                "Stocks"  : "000001",
-                "Futures" : "H2206",
-                "Options" : "u2205C432"
+                "Stocks":[
+                    "000001",
+                    "600600"
+                ],
+                "Futures":[
+                    "IH2206",
+                    "IF2206"
+                ],
+                "Options":[
+                ]
             }
-        logging.info(self.set)
+        logging.debug(self.set)
 
     def start(self):
         if not TRADE_DATE:

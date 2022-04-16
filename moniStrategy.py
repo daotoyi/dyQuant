@@ -123,7 +123,7 @@ class Options():
 
     def main(self, trade_code) -> list:
         return self.pctChg(trade_code)
-        
+         
     def realTimePrice(self, trade_code):
         df = ak.option_current_em()
         df = df.query(f"代码=='{trade_code}'")
