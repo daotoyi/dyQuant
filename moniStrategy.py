@@ -8,6 +8,7 @@ Description: monitor strategy
 import tushare as ts
 import akshare as ak
 import logging
+import json
 from strategy import *
 
 logging.basicConfig(level=logging.INFO,format='[%(asctime)s] %(filename)s [line:%(lineno)d] \
@@ -15,28 +16,29 @@ logging.basicConfig(level=logging.INFO,format='[%(asctime)s] %(filename)s [line:
 
 pro = ts.pro_api('2b9c92fe55406b850da0ca6cc63dc239628d1b0f5931519883567575')
 
-class DataFeed():
-    def __init__(self, func):
-        self.func = func
-
-    def __call__(self, *args, **kwargs):
-        try:
-            self.func(*args, **kwargs)
-            logging.info("------------------------------------------------------------------------")
-        except:
-             pass 
-        return self.func(*args, **kwargs)
+def decorator_try():
+    def outwrapper(func):
+        def wrapper(*args, **kwargs):
+            try:
+                logging.debug(func.__name__)
+                return func( *args, **kwargs)
+            except:
+                logging.info(f"functon<{func.__name__}>:An unspected error occured.")
+                return
+        return wrapper
+    return outwrapper        
 
 class Stocks():
     def __init__(self) -> None:
-        pass
+        self.count = 0
 
     def main(self, trade_code):
         msg = self.pctChg(trade_code)
-        return msg
+        if self.count: # 1
+            return msg
 
-    #@DataFeed
     def realTimePrice(self, trade_code):
+        logging.debug(trade_code)
         df = ak.stock_zh_a_spot_em() # market all stocks 
         df = df.loc[df['代码'] == trade_code]
         info ={
@@ -54,15 +56,23 @@ class Stocks():
         return info
 
     def change(self, trade_code) -> list:
-        msg = [f'Monitor {trade_code} run', 'This is the Securities Monitor && sendMail integration ', 'Good Lucky!']
+        msg = [f'Monitor {trade_code} run', 
+            'This is the Securities Monitor && sendMail integration ',
+            'Good Lucky!']
         return msg
 
+    @decorator_try()
     def pctChg(self, trade_code):
         info = self.realTimePrice(trade_code)
+        logging.debug(type(info))
         if abs(float(info["pct_chg"])) > 1:
-            msg = [f"[{info['name']}] change over 5%", "Up quickly!", "Pay attention."]
+            msg = [f"[{info['name']}] change over 5%",
+                "Up quickly!",
+                 "Pay attention."]
+            self.count = 1
             return msg
-
+        else:
+            self.count = 0
     def test(self, trade_code) -> list:
         cost = 10
         number = 100
@@ -88,10 +98,12 @@ class Stocks():
 
 class Futures():
     def __init__(self) -> None:
-        pass
+        self.count = 0
 
     def main(self, trade_code):
-        return self.pctChg(trade_code)
+        msg = self.pctChg(trade_code)
+        if self.count: # 1
+            return msg
 
     def realTimePrice(self, trade_code):
         df = ak.futures_zh_spot(symbol=trade_code, market="FF", adjust='0')
@@ -108,22 +120,30 @@ class Futures():
         }
         return info
 
+    @decorator_try()
     def pctChg(self, trade_code):
         info = self.realTimePrice(trade_code)
         perent_change = round((float(info["current_price"]) - float(info["open_price"])) / float(info["open_price"]) * 100, 2)
         if abs(perent_change) > 0.1:
-            msg = [f"[{info['symbol']}] change over 1%", "Up Up Up!", "Take Action."]
+            msg = [f"[{info['symbol']}] change over 1%",
+                "Up Up Up!", 
+                "Take Action."]
             logging.debug(msg)
+            self.count = 1
             return msg
+        else:
+            self.count = 0
 
 
 class Options():
     def __init__(self) -> None:
-        pass
+        self.count = 0
 
     def main(self, trade_code) -> list:
-        return self.pctChg(trade_code)
-         
+        msg = self.pctChg(trade_code)
+        if self.count: # 1
+            return msg 
+
     def realTimePrice(self, trade_code):
         df = ak.option_current_em()
         df = df.query(f"代码=='{trade_code}'")
@@ -142,13 +162,23 @@ class Options():
         }
         return info
 
+    @decorator_try()
     def pctChg(self, trade_code):
         info = self.realTimePrice(trade_code)
         if abs(float(info['pct_chg'])) >= 30:
             msg = [f"[{info['name']}] change over 30%", "Optunition", "Take Action."]
             logging.debug(msg)
+            self.count = 1 
             return msg
+        else:
+            self.count = 0
     
     def change(self, trade_code) -> list:
         msg = [f'Monitor {trade_code} run', 'This is the Options Monitor && sendMail integration', 'Good Lucky!']
         return msg
+
+if __name__ == '__main__':
+    # Stocks().main('600675')
+    # Futures().main()
+    Options().main('u2205C432')
+

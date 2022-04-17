@@ -6,6 +6,7 @@ Description: Quant Strategy monitor trade time.
 '''
 
 import datetime, time
+from interval import Interval
 import pandas as pd
 import pysnooper as snp
 import trading_calendars as tc
@@ -38,7 +39,7 @@ from email.mime.multipart import MIMEMultipart # Collecting multiple objects
 
 from moniStrategy import Stocks, Futures, Options
 
-logging.basicConfig(level=logging.INFO,format='[%(asctime)s] %(filename)s [line:%(lineno)d] \
+logging.basicConfig(level=logging.DEBUG,format='[%(asctime)s] %(filename)s [line:%(lineno)d] \
 [%(levelname)s]  %(message)s', datefmt='%Y-%m-%d(%a) %H:%M:%S')
 
 # logging.basicConfig(
@@ -331,37 +332,67 @@ class Toast():
 
 
 class TradeDateTime():
+    # @snp.snoop(depth=1, prefix="__init__: ")
     def __init__(self) -> None:
         now = datetime.datetime.now()
-        self.now_time = now.strftime('%Y-%m-%d %H:%M:%S')
+        self.now_datetime = now.strftime('%Y-%m-%d %H:%M:%S')
         self.now_date = now.strftime('%Y-%m-%d')
 
         global TRADE_DATE
-        global TRADE_TIME
+        global TRADE_TIME_STOCK
+        global TRADE_TIME_FUTURE
+
         sse = tc.get_calendar("SSE")
         TRADE_DATE = sse.is_session(pd.Timestamp(self.now_date))
 
-        self.AMclose_time = now.strftime('%Y-%m-%d') + ' 11:30:01'
-        self.PMopen_time  = now.strftime('%Y-%m-%d') + ' 13:00:00'
-        self.PMclose_time = now.strftime('%Y-%m-%d') + ' 15:00:01'
-
-        self.now_datetime = datetime.datetime.strptime(self.now_time, '%Y-%m-%d %H:%M:%S')
-        self.AMclose_datetime = datetime.datetime.strptime(self.AMclose_time, '%Y-%m-%d %H:%M:%S')
-        self.PMopen_datetime  = datetime.datetime.strptime(self.PMopen_time,  '%Y-%m-%d %H:%M:%S')
-        self.PMclose_datetime = datetime.datetime.strptime(self.PMclose_time, '%Y-%m-%d %H:%M:%S')
-
-        now_AMclose = (self.now_datetime - self.AMclose_datetime).total_seconds()
-        now_PMopen  = (self.now_datetime - self.PMopen_datetime).total_seconds()
-        now_PMclose = (self.now_datetime - self.PMclose_datetime).total_seconds()
+        self.interval_stock()
+        self.interval_future()
 
     # @snp.snoop(depth=1, prefix="tradeTime: ")
-    # def tradeTime(self):
-        # if now_AMclose > 0 and now_PMopen < 0 or now_PMclose > 0: #* 9:30-24:00
-        if now_AMclose > 0 and now_PMopen < 0 : #* 9:30-15:00
-            TRADE_TIME = False
-        else:
-            TRADE_TIME = True
+    def tradeTime(self):
+        AMclose_time = now.strftime('%Y-%m-%d') + ' 11:30:01'
+        PMopen_time  = now.strftime('%Y-%m-%d') + ' 13:00:00'
+        PMclose_time = now.strftime('%Y-%m-%d') + ' 15:00:01'
 
+        now_datetime = datetime.datetime.strptime(self.now_datetime, '%Y-%m-%d %H:%M:%S')
+        AMclose_datetime = datetime.datetime.strptime(AMclose_time, '%Y-%m-%d %H:%M:%S')
+        PMopen_datetime  = datetime.datetime.strptime(PMopen_time,  '%Y-%m-%d %H:%M:%S')
+        PMclose_datetime = datetime.datetime.strptime(PMclose_time, '%Y-%m-%d %H:%M:%S')
+
+        now_AMclose = (now_datetime - AMclose_datetime).total_seconds()
+        now_PMopen  = (now_datetime - PMopen_datetime).total_seconds()
+        now_PMclose = (now_datetime - PMclose_datetime).total_seconds()
+
+        if now_AMclose > 0 and now_PMopen < 0 or now_PMclose > 0: #* 9:30-24:00
+            TRADE_TIME_STOCK = False
+        else:
+            TRADE_TIME_STOCK = True
+
+    # @snp.snoop(depth=1, prefix="interval_stock: ")
+    def interval_stock(self):
+        now_localtime = time.strftime("%H:%M:%S", time.localtime())
+        now_time = Interval(now_localtime, now_localtime)
+        interval_stock_am = Interval("09:30:00", "11:30:00")
+        interval_stock_pm = Interval("13:00:00", "15:00:00")
+
+        global TRADE_TIME_STOCK
+        if now_time in interval_stock_am or now_time in interval_stock_pm:
+            TRADE_TIME_STOCK = True
+        else:
+            TRADE_TIME_STOCK = False
+
+    def interval_future(self):
+        now_localtime = time.strftime("%H:%M:%S", time.localtime())
+        now_time = Interval(now_localtime, now_localtime)
+        interval_future_am = Interval("09:00:00", "11:30:00")
+        interval_future_pm = Interval("13:00:00", "15:15:00")
+        interval_future_nt = Interval("21:00:00", "23:00:00")
+
+        global TRADE_TIME_FUTURE
+        if now_time in interval_future_am or now_time in interval_future_pm or now_time in interval_future_nt:
+            TRADE_TIME_FUTURE = True
+        else:
+            TRADE_TIME_FUTURE = False
 
 class Monitor():
     def __init__(self) -> None:
@@ -382,35 +413,38 @@ class Monitor():
             'IFTTT'  : IFTTT
         }
 
-        if TRADE_TIME == True:
-            logging.debug(opt_market[symType])
-            content = opt_market[symType]().main(tradeCode)  # opt[]().test()
-            if content:
-                logging.debug(content)
-                self.lock.acquire()
-                opt_device[device]().send(message=content)
-                    # Toast().send(message=content)
-                    # WeChat().send(message=content)
-                    # Mail().send(message=content)
-                    # IFTTT().send(message=content)
-                self.lock.release()
+        logging.debug(opt_market[symType])
+        content = opt_market[symType]().main(tradeCode)  # opt[]().test()
+        if content:
+            self.lock.acquire()
+            opt_device[device]().send(message=content)
+                # Toast().send(message=content)
+                # WeChat().send(message=content)
+                # Mail().send(message=content)
+                # IFTTT().send(message=content)
+            self.lock.release()
 
     # @snp.snoop(depth=1, prefix="run: ")
     def run(self, symType, tradeCode, device):
-        while True:
-            self.monitor(symType, tradeCode, device)
-            now_PMclose = (TradeDateTime().now_datetime - TradeDateTime().PMclose_datetime).total_seconds()
-            if now_PMclose > 0:
-                logging.info('A-Stock market close, exit thread monitor.')
-                break
-            time.sleep(10)
+        if symType == 'Futures':
+            while TRADE_TIME_FUTURE:
+                self.monitor(symType, tradeCode, device)
+                time.sleep(10) 
+                TradeDateTime().interval_future()
+        else: # stocks and options trade time
+            while TRADE_TIME_STOCK:
+                self.monitor(symType, tradeCode, device)
+                time.sleep(10) 
+                TradeDateTime().interval_stock()
 
 
 # @snp.snoop(depth=1, prefix="main: ")
 class Main():
     def __init__(self):
-        # initial global variable TRADE_DATE TRADE_TIME
+        # initial global variable TRADE_DATE TRADE_TIME_
         TradeDateTime()
+        logging.info(f"TRADE_DATE:{TRADE_DATE}, TRADE_TIME_STOCK:{TRADE_TIME_STOCK}, TRADE_TIME_FUTURE:{TRADE_TIME_FUTURE}")
+
         try:
             with open('underlying.json') as j:
                 self.set = json.load(j)
@@ -429,31 +463,57 @@ class Main():
             }
         logging.debug(self.set)
 
-    def start(self):
+        self.stocks_list = self.set["Stocks"]
+        self.futures_list = self.set["Futures"]
+        self.options_list = self.set["Options"]
+        self.all_symbols = self.set["Stocks"] + self.set["Futures"] + self.set["Options"]
+
+    def start_stocks_options(self ):
+        self.start(symType="Stocks", symbols=self.stocks_list)
+        self.start(symType="Futures", symbols=self.options_list)
+
+    def start_futures(self):
+        self.start(symType="Options", symbols=self.futures_list)
+
+    def start(self, symType, symbols):
         if not TRADE_DATE:
-            # now_date = datetime.datetime.now().strftime('%Y-%m-%d')
-            now_date = TradeDateTime().now_date
-            print(f'{now_date} is not trade date, monitor will not work.')
+            # now_date = TradeDateTime().now_date  ## can't used in test-mode
+            now_date = time.strftime("%Y-%m-%d", time.localtime())
+            logging.info(f'<{now_date}> is not trade date, monitor will not work.')
             return
 
-        # now_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        now_time = TradeDateTime().now_time
-        print(f'{now_time} Monitor start:')
-        device = 'IFTTT' # IFTTT, WeCaht, Mail, Toast
+        # now_datetime = TradeDateTime().now_time  ## can't used in test-mode
+        now_datetime = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+        logging.info(f'<{now_datetime}> Monitor start:')
 
+        device = 'IFTTT' # IFTTT, WeCaht, Mail, Toast
         os.environ['NUMEXPR_MAX_THREADS'] = '8'
         threads = []
         func = Monitor().run
+        for symbol in symbols:
+            thread = threading.Thread(target=func, args=(symType, symbol, device))
+            logging.info(f'==> thread <{symType}-{symbol}> start run ...')
+            thread.start()
+            # thread.join()
+            threads.append(thread)
+
+    # @snp.snoop(depth=1, prefix="test: ")
+    def test(self):
+        global TRADE_DATE, TRADE_TIME_STOCK, TRADE_TIME_FUTURE
+        TRADE_DATE = True
+        TRADE_TIME_STOCK = True 
+        TRADE_TIME_FUTURE = True
+        logging.debug(globals())
         for symType, symbols in self.set.items():
-            for symbol in symbols:
-                thread = threading.Thread(target=func, args=(symType, symbol, device))
-                logging.info(f'==> thread-{symType}-{symbol} start run ...')
-                thread.start()
-                # thread.join()
-                threads.append(thread)
+            self.start(symType, symbols)
 
     def sked(self):
-        schedule.every().day.at("09:30").do(start)
+        schedule.every().day.at("09:30").do(start_stocks_options)
+        schedule.every().day.at("13:00").do(start_stocks_options)
+        schedule.every().day.at("09:00").do(start_futures)
+        schedule.every().day.at("10:30").do(start_futures)
+        schedule.every().day.at("13:00").do(start_futures)
+        schedule.every().day.at("21:00").do(start_futures)
         while True:
             schedule.run_pending()
             time.sleep(1)
@@ -463,8 +523,5 @@ class Main():
 
 
 if __name__ == '__main__':
-    # test_msg = ['A50 UP 3%','A50 Done!','Good Lucky!!']
-    # WeChat().send(userName='filehelper', message=r'tmp.py', msgType='Text')
-    Main().start()
-
+    Main().test()
     # Main().sked()

@@ -8,8 +8,9 @@ import time
 import datetime
 import inspect
 import logging
-import matplotlib.pyplot as plt
+import pandas as pd
 import pysnooper as psn
+import matplotlib.pyplot as plt
 
 import pandas as pd
 import akshare as ak
@@ -19,6 +20,10 @@ logging.basicConfig(level=logging.INFO,format='[%(asctime)s] %(filename)s [line:
 
 plt.rcParams['font.sans-serif'] = ['SimHei']   # 设置简黑字体
 plt.rcParams['axes.unicode_minus'] = False  # 解决'-'' bug
+
+pd.set_option('display.max_columns', None)  # show all columns
+# pd.set_option('display.max_rows', None)     # show all rows, 导致输出变慢或者程序崩溃
+pd.set_option('max_colwidth',100)           # default 50
 
 class Init():
     def __init__(self):
@@ -73,7 +78,7 @@ class Stocks():
         Description: 个股信息
         '''
         stock_individual_info_em_df = ak.stock_individual_info_em(symbol=symbol)
-        self.show_result(title=inspect.stack()[0][3], content=stock_individual_info)
+        self.show_result(title=inspect.stack()[0][3], content=stock_individual_info_em_df)
 
     def stock_zh_a_spot(self):
         '''

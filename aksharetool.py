@@ -4,12 +4,14 @@ Date: 2022-04-16 12:44:07
 Description: Invoke AKShare interface 
 '''
 
-import datetime
 import json
 import logging
 import pysnooper as psn
 
 from akshareinterface import Init, Index, Stocks, Futures, FuturesForeign, Options
+
+logging.basicConfig(level=logging.DEBUG,format='[%(asctime)s] %(filename)s [line:%(lineno)d] \
+[%(levelname)s]  %(message)s', datefmt='%Y-%m-%d(%a) %H:%M:%S')
 
 def tool_info():
     info = {
@@ -111,8 +113,16 @@ def main():
         start_date = input("input start  :")
         end_date   = input("input end    :")
         trade_date = input("input date   :")
-        opt[index]()
-        input("\n<<=== Enter to continue:")
+        
+        print("\n Wating for get data ...")
+        try:
+            opt[index](*args, **kwargs)
+        except:
+            print("Access akshareinterface ERROR.")
+
+        next_step = input("\n===>> Enter  to continue;\n<<=== Anykey to exit. \n")
+        if next_step != "":
+            break
 
 if __name__ == '__main__':
     Init()
