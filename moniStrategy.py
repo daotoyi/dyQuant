@@ -9,6 +9,7 @@ import tushare as ts
 import akshare as ak
 import logging
 import json
+import pysnooper as snp
 from strategy import *
 
 logging.basicConfig(level=logging.INFO,format='[%(asctime)s] %(filename)s [line:%(lineno)d] \
@@ -28,13 +29,16 @@ def decorator_try():
         return wrapper
     return outwrapper        
 
+global STOCK_COUNT, STOCK_COUNT_1, FUTURE_COUNT, OPTION_COUNT 
+STOCK_COUNT = STOCK_COUNT_1 = FUTURE_COUNT = OPTION_COUNT = 0
+
 class Stocks():
     def __init__(self) -> None:
-        self.count = 0
+        pass
 
     def main(self, trade_code):
         msg = self.pctChg(trade_code)
-        if self.count: # 1
+        if STOCK_COUNT == 1:
             return msg
 
     def realTimePrice(self, trade_code):
@@ -65,14 +69,19 @@ class Stocks():
     def pctChg(self, trade_code):
         info = self.realTimePrice(trade_code)
         logging.debug(type(info))
-        if abs(float(info["pct_chg"])) > 1:
-            msg = [f"[{info['name']}] change over 5%",
-                "Up quickly!",
-                 "Pay attention."]
-            self.count = 1
-            return msg
+        perent = abs(float(info["pct_chg"])) 
+        if perent > 4.8:
+            STOCK_COUNT += 1
+            return [f"[{info['name']}] change over 5%", "-----", "Pay attention."]
         else:
-            self.count = 0
+            STOCK_COUNT_1 = 0
+
+        if perent > 9.8:
+            STOCK_COUNT_1 += 1
+            return [f"[{info['name']}] change over 5%", "-----", "Pay attention."]
+        else:
+            STOCK_COUNT_1 = 0
+
     def test(self, trade_code) -> list:
         cost = 10
         number = 100
@@ -98,11 +107,12 @@ class Stocks():
 
 class Futures():
     def __init__(self) -> None:
-        self.count = 0
+        pass
+
 
     def main(self, trade_code):
         msg = self.pctChg(trade_code)
-        if self.count: # 1
+        if FUTURE_COUNT == 1:
             return msg
 
     def realTimePrice(self, trade_code):
@@ -124,24 +134,28 @@ class Futures():
     def pctChg(self, trade_code):
         info = self.realTimePrice(trade_code)
         perent_change = round((float(info["current_price"]) - float(info["open_price"])) / float(info["open_price"]) * 100, 2)
-        if abs(perent_change) > 0.1:
-            msg = [f"[{info['symbol']}] change over 1%",
-                "Up Up Up!", 
-                "Take Action."]
+        if abs(perent_change) > 1:
+            return [f"[{info['symbol']}] change over 1%", "Up Up Up!", "Take Action."]
             logging.debug(msg)
-            self.count = 1
-            return msg
+            FUTURE_COUNT += 1
         else:
-            self.count = 0
+            FUTURE_COUNT = 0 
 
 
 class Options():
     def __init__(self) -> None:
-        self.count = 0
+        pass
 
     def main(self, trade_code) -> list:
-        msg = self.pctChg(trade_code)
-        if self.count: # 1
+        if trade_code.isdigit():
+            func = sse_spot
+        elif trade_code[:2] == 'io':
+            func = cffex_spot 
+        else:
+            func = self.realTimePrice
+
+        msg = self.pctChg(trade_code, func)
+        if OPTION_COUNT == 1:
             return msg 
 
     def realTimePrice(self, trade_code):
@@ -162,16 +176,54 @@ class Options():
         }
         return info
 
+    def cffex_spot(self, trade_code):
+        symbol = trade_code[:6]
+        exercise_price = trade_code[-4:]
+        df = ak.option_cffex_hs300_spot_sina(symbol)
+        # df = df.query(f"行权价=='{exercise_price}'")
+        df = df.query(f"看涨合约-标识=='{trade_code}' | 看跌合约-标识=='{trade_code}'")
+        info_call ={
+            'name'              : list(df["看涨合约-标识"])[0],
+            'exercise_price'    : list(df["行权价-最新价"])[0],
+            'current_price'     : list(df["看涨合约-最新价"])[0],
+            'change'            : list(df["看涨合约-涨跌"])[0]
+        }
+        info_put = {
+            'name'              : list(df["看跌合约-标识"])[0],
+            'exercise_price'    : list(df["行权价-最新价"])[0],
+            'current_price'     : list(df["看跌合约-最新价"])[0],
+            'change'            : list(df["看跌合约-涨跌"])[0],
+        }
+        if trade_code[-5] == 'C':
+            return info_call
+        elif trade_code[-5] == 'P':
+            return info_put
+
+    def sse_spot(self, trade_code):
+        df = ak.option_sse_spot_price_sina(symbol=trade_code)
+        info = {
+            'current_price'     : float(df["值"][2]),
+            'hold'              : float(df["值"][5]),
+            'pct_chg'           : float(df["值"][6]),
+            'exercise_price'    : float(df["值"][7]),
+            'pre_close'         : float(df["值"][8]),
+            'open_price'        : float(df["值"][9]),
+            'name'              : float(df["值"][37]),
+            'volume'            : float(df["值"][41]),
+            'amount'            : float(df["值"][42])
+        }
+        return info 
+
+    # @snp.snoop(depth=1, prefix="Options.main: ")
     @decorator_try()
-    def pctChg(self, trade_code):
-        info = self.realTimePrice(trade_code)
-        if abs(float(info['pct_chg'])) >= 30:
-            msg = [f"[{info['name']}] change over 30%", "Optunition", "Take Action."]
-            logging.debug(msg)
-            self.count = 1 
-            return msg
+    def pctChg(self, trade_code, func):
+        # info = self.realTimePrice(trade_code)
+        info = func(trade_code)
+        if abs(float(info['pct_chg'])) >= 20:
+            return [f"[{info['name']}] change over 20%", "Optunition", "Take Action."]
+            OPTION_COUNT += 1
         else:
-            self.count = 0
+            OPTION_COUNT = 0
     
     def change(self, trade_code) -> list:
         msg = [f'Monitor {trade_code} run', 'This is the Options Monitor && sendMail integration', 'Good Lucky!']

@@ -25,6 +25,22 @@ pd.set_option('display.max_columns', None)  # show all columns
 # pd.set_option('display.max_rows', None)     # show all rows, 导致输出变慢或者程序崩溃
 pd.set_option('max_colwidth',100)           # default 50
 
+def decorator_parse(para):
+    ''' for TODO
+    '''
+    symbol = para[0]
+    period = para[1]
+    adjust = para[2] 
+    start  = para[3]
+    end    = para[4]
+    date   = para[5]
+    def  outwrapper(func):
+        def wrapper(*args, **kwargs):
+            loc = locals()
+            func(*args, **kwargs)
+        return wrapper
+    return outwrapper
+
 class Init():
     def __init__(self):
         global NOW_TIME

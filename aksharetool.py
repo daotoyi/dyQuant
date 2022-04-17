@@ -18,16 +18,16 @@ def tool_info():
         "0 指数" : {
             "01": "stock_zh_index_spot",
             "02": "stock_zh_index_daily",
-            "03": "stock_zh_kcb_spot  - symbol",
-            "04": "stock_zh_kcb_daily - symbol, adjust"
+            "03": "stock_zh_kcb_spot        - symbol",
+            "04": "stock_zh_kcb_daily       - symbol, adjust"
             },
         "1 股票" : {
             "11": "stock_summary",
-            "12": "stock_individual_info - symbol",
+            "12": "stock_individual_info    - symbol",
             "13": "stock_zh_a_spot",
-            "14": "stock_zh_a_hist       - symbol,period,start_date,end_date,adjust",
-            "15": "stock_zh_a_minute     - symbol, start_date, end_date, period, adjust",
-            "16": "stock_zh_a_tick       - symbol, trade_date",
+            "14": "stock_zh_a_hist          - symbol,period,start_date,end_date,adjust",
+            "15": "stock_zh_a_minute        - symbol, start_date, end_date, period, adjust",
+            "16": "stock_zh_a_tick          - symbol, trade_date",
             "17": "stock_hk_spot_em"
             },
         "2 期货" : {
@@ -106,17 +106,27 @@ def main():
     }
     while True:
         print(info)
+        para = []
+
         index  = input("\n\nInput Number :")
+
         symbol = input("input symbol :")
+        para.append(symbol)
         period = input("input period :")
+        para.append(period)
         adjust = input("input adjust :")
+        para.append(adjust)
         start_date = input("input start  :")
+        para.append(start_date)
         end_date   = input("input end    :")
+        para.append(end_date)
         trade_date = input("input date   :")
-        
+        para.append(trade_date)
+        print("\nList of inputs:", para) 
+
         print("\n Wating for get data ...")
         try:
-            opt[index](*args, **kwargs)
+            opt[index]()
         except:
             print("Access akshareinterface ERROR.")
 

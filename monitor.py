@@ -414,7 +414,7 @@ class Monitor():
         }
 
         logging.debug(opt_market[symType])
-        content = opt_market[symType]().main(tradeCode)  # opt[]().test()
+        content = opt_market[symType]().main(tradeCode)
         if content:
             self.lock.acquire()
             opt_device[device]().send(message=content)
@@ -431,7 +431,7 @@ class Monitor():
                 self.monitor(symType, tradeCode, device)
                 time.sleep(10) 
                 TradeDateTime().interval_future()
-        else: # stocks and options trade time
+        else: # stocks and options trade
             while TRADE_TIME_STOCK:
                 self.monitor(symType, tradeCode, device)
                 time.sleep(10) 
@@ -504,6 +504,7 @@ class Main():
         TRADE_TIME_STOCK = True 
         TRADE_TIME_FUTURE = True
         logging.debug(globals())
+        
         for symType, symbols in self.set.items():
             self.start(symType, symbols)
 

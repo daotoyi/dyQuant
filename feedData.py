@@ -1,9 +1,7 @@
 '''
 Author: daoyi
 Date: 2021-08-22 21:51:25
-LastEditTime: 2021-08-23 08:33:50
-LastEditors: Please set LastEditors
-Description: feed source data
+Description: feed source data, TODO
 '''
 import pandas as pd
 import numpy as np
@@ -42,11 +40,15 @@ class AK():
         sse_spot = ak.option_sina_sse_spot_price(code=contract_code)
         return sse_spot
 
+
 class DT():
     def __init__(self) -> None:
         pass
 
+
 class JQ():
+    '''JoinQuant
+    '''
     def __init__(self) -> None:
         is_login = self.login
 
@@ -61,11 +63,13 @@ class JQ():
     def stock(self, code, start_date, end_date):
         jqdatasdk.get_price(code, start_date=start_date, end_date=end_date)
 
+
 class TQ(): 
     '''TianQin
     '''
     def __init__(self) -> None:
         pass
+
 
 class DataFormat():
     def bt(data_frame):
@@ -82,3 +86,7 @@ class DataFormat():
     
     def vnpy():
         pass
+
+
+if __name__ == '__main__':
+    pass
