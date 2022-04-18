@@ -397,27 +397,48 @@ class TradeDateTime():
 class Monitor():
     def __init__(self) -> None:
         self.lock= threading.RLock()
-        self.trade_time = None
-
-    # @snp.snoop(depth=1, prefix="monitor: ")
-    def monitor(self, symType, tradeCode, device):
-        opt_market = {
+        self.opt_market = {
             "Stocks"  : Stocks,
             "Futures" : Futures,
             "Options" : Options
         }
-        opt_device = {
+        self.opt_device = {
             'WeChat' : WeChat,
             'Mial'   : Mail,
             'Toast'  : Toast, ## [Toast().toast()] Thread  [Monitor().run], raise ERROR[no attribute 'classAtom'].
             'IFTTT'  : IFTTT
         }
 
-        logging.debug(opt_market[symType])
-        content = opt_market[symType]().main(tradeCode)
+    # @snp.snoop(depth=1, prefix="monitor: ")
+    def monitor(self, symType, tradeCode, device):
+
+        logging.debug(self.opt_market[symType])
+        if symType == 'Stocks':
+            self.monitorCycle(
+                symType=symType, 
+                tradeCode=tradeCode, 
+                device=device,
+                tradeTime=TRADE_TIME_STOCK
+            )
+            TradeDateTime().interval_stock()
+        elif symType == 'Futures':
+            self.monitorCycle(symType=symType, tradeCode=tradeCode, device=device, tradeTime=TRADE_TIME_FUTURE )
+            TradeDateTime().interval_future()
+        elif symType == 'Options':
+            self.monitorCycle(symType=symType, tradeCode=tradeCode, device=device, tradeTime=TRADE_TIME_STOCK )
+            TradeDateTime().interval_stock()
+
+    def monitorCycle(self, symType, tradeCode, device, tradeTime):
+        instance = self.opt_market[symType]()
+        while tradeTime:
+            content = instance.main(tradeCode)
+            self.sendMsg(content= content, device=device)
+            time.sleep(10)        
+
+    def sendMsg(self, content, device):
         if content:
             self.lock.acquire()
-            opt_device[device]().send(message=content)
+            self.opt_device[device]().send(message=content)
                 # Toast().send(message=content)
                 # WeChat().send(message=content)
                 # Mail().send(message=content)
@@ -443,7 +464,9 @@ class Main():
     def __init__(self):
         # initial global variable TRADE_DATE TRADE_TIME_
         TradeDateTime()
-        logging.info(f"TRADE_DATE:{TRADE_DATE}, TRADE_TIME_STOCK:{TRADE_TIME_STOCK}, TRADE_TIME_FUTURE:{TRADE_TIME_FUTURE}")
+        logging.info(f"TRADE_DATE:{TRADE_DATE},\
+            TRADE_TIME_STOCK:{TRADE_TIME_STOCK},\
+            TRADE_TIME_FUTURE:{TRADE_TIME_FUTURE}")
 
         try:
             with open('underlying.json') as j:
@@ -455,8 +478,7 @@ class Main():
                     "600600"
                 ],
                 "Futures":[
-                    "IH2206",
-                    "IF2206"
+                    "IH2206"
                 ],
                 "Options":[
                 ]
@@ -489,7 +511,7 @@ class Main():
         device = 'IFTTT' # IFTTT, WeCaht, Mail, Toast
         os.environ['NUMEXPR_MAX_THREADS'] = '8'
         threads = []
-        func = Monitor().run
+        func = Monitor().monitor
         for symbol in symbols:
             thread = threading.Thread(target=func, args=(symType, symbol, device))
             logging.info(f'Run thread <{symType}-{symbol}>')

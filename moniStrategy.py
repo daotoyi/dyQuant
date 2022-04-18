@@ -49,7 +49,7 @@ class Stocks():
     # @snp.snoop(depth=1, prefix="Stocks.main: ")
     def main(self, trade_code):
         msg = self.pctChg(trade_code)
-        if self.index == 1:
+        if self.index == 1 or self.index2 == 1:
             return msg
 
     def realTimePrice(self, trade_code):
@@ -82,18 +82,18 @@ class Stocks():
         logging.debug(type(info))
 
         perent = abs(float(info["pct_chg"]))
+        if perent > 9.8:
+            self.index2 += 1
+            return [f"[{info['name']}]", "Change over 10%", "-----", "Pay attention."]
+        else:
+            self.index2 = 0
+
         point = 3
         if perent > point:
             self.index += 1
             return [f"[{info['name']}]", f"Change over {point}%", "-----", "Pay attention."]
         else:
             self.index = 0
-
-        if perent > 9.8:
-            self.index2 += 1
-            return [f"[{info['name']}]", "Change over 10%", "-----", "Pay attention."]
-        else:
-            self.index2 = 0
 
 
 class Futures():
