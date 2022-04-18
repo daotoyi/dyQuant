@@ -319,7 +319,7 @@ class IFTTT():
         headers = {'Content-Type': "application/json"}
         response = requests.request("POST", url, data=json.dumps(payload), headers=headers)
         # response = requests.post(url, json=payload)
-        logging.info(response.text)
+        logging.info(f"{message[0]} {response.text}")
 
 
 class Toast():
@@ -367,7 +367,7 @@ class TradeDateTime():
             TRADE_TIME_STOCK = False
         else:
             TRADE_TIME_STOCK = True
-
+   
     # @snp.snoop(depth=1, prefix="interval_stock: ")
     def interval_stock(self):
         now_localtime = time.strftime("%H:%M:%S", time.localtime())
@@ -484,7 +484,7 @@ class Main():
 
         # now_datetime = TradeDateTime().now_time  ## can't used in test-mode
         now_datetime = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
-        logging.info(f'<{now_datetime}> Monitor start:')
+        logging.info(f'==> <{now_datetime}> Monitor:')
 
         device = 'IFTTT' # IFTTT, WeCaht, Mail, Toast
         os.environ['NUMEXPR_MAX_THREADS'] = '8'
@@ -492,7 +492,7 @@ class Main():
         func = Monitor().run
         for symbol in symbols:
             thread = threading.Thread(target=func, args=(symType, symbol, device))
-            logging.info(f'==> thread <{symType}-{symbol}> start run ...')
+            logging.info(f'Run thread <{symType}-{symbol}>')
             thread.start()
             # thread.join()
             threads.append(thread)
@@ -509,12 +509,12 @@ class Main():
             self.start(symType, symbols)
 
     def sked(self):
-        schedule.every().day.at("09:30").do(start_stocks_options)
-        schedule.every().day.at("13:00").do(start_stocks_options)
-        schedule.every().day.at("09:00").do(start_futures)
-        schedule.every().day.at("10:30").do(start_futures)
-        schedule.every().day.at("13:00").do(start_futures)
-        schedule.every().day.at("21:00").do(start_futures)
+        schedule.every().day.at("09:30").do(self.start_stocks_options)
+        schedule.every().day.at("13:00").do(self.start_stocks_options)
+        schedule.every().day.at("09:00").do(self.start_futures)
+        schedule.every().day.at("10:30").do(self.start_futures)
+        schedule.every().day.at("13:00").do(self.start_futures)
+        schedule.every().day.at("21:00").do(self.start_futures)
         while True:
             schedule.run_pending()
             time.sleep(1)

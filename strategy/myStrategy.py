@@ -54,5 +54,28 @@ class DoubleMA():
         # 如果已有持仓，寻找平仓信号，此地方选择10日之后平仓
             if len(self) >= (self.bar_executed + 10):
                 self.order = self.close()
+             
                 
+class Test():
+    def test(self, trade_code) -> list:
+        cost = 10
+        number = 100
+        info = self.realTimePrice(trade_code)
+        price = float(info['price'][0])
+        name = info['name'][0]
+        pre_close = float(info['pre_close'][0])
+        date = info['date'][0]
+        time = info['time'][0]
+        change_per_pre = round((price - pre_close) / pre_close * 100, 2)
+        change_per_all = round((price - cost) / cost * 100, 2)
+        market_value = round(number * price, 2)
+        profit = round(market_value - cost * number, 2)
+        if (abs(change_per_pre) >= 2 and abs(change_per_pre) < 4) \
+            or  (abs(change_per_pre) >= 6 and abs(change_per_pre) < 8) \
+                or (abs(change_per_pre) >= 9 and abs(change_per_pre) < 10):
+            content = []
+            content.append('<html>')
+            content.append('Changed')
+            content.append('')
 
+        return content

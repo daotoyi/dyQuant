@@ -9,36 +9,47 @@ import tushare as ts
 import akshare as ak
 import logging
 import json
+import os
 import pysnooper as snp
 from strategy import *
 
 logging.basicConfig(level=logging.INFO,format='[%(asctime)s] %(filename)s [line:%(lineno)d] \
 [%(levelname)s]  %(message)s', datefmt='%Y-%m-%d(%a) %H:%M:%S')
 
+os.environ['NUMEXPR_MAX_THREADS'] = '8'
 pro = ts.pro_api('2b9c92fe55406b850da0ca6cc63dc239628d1b0f5931519883567575')
+
 
 def decorator_try():
     def outwrapper(func):
         def wrapper(*args, **kwargs):
             try:
-                logging.debug(func.__name__)
+                logging.debug(len(args))
                 return func( *args, **kwargs)
             except:
-                logging.info(f"functon<{func.__name__}>:An unspected error occured.")
+                logging.info(f"functon<{func.__name__}>[{args[0]}]:An unspected error occured.")
                 return
         return wrapper
     return outwrapper        
 
-global STOCK_COUNT, STOCK_COUNT_1, FUTURE_COUNT, OPTION_COUNT 
-STOCK_COUNT = STOCK_COUNT_1 = FUTURE_COUNT = OPTION_COUNT = 0
 
 class Stocks():
     def __init__(self) -> None:
-        pass
+        self.index = 0
+        self.index2 = 0
 
+    def __getattribute__(self,obj):
+        ''' work? global
+        '''
+        # global STOCK_COUNT, STOCK_COUNT_1
+        # logging.debug(locals())
+        # logging.debug(globals())
+        return object.__getattribute__(self,obj)
+
+    # @snp.snoop(depth=1, prefix="Stocks.main: ")
     def main(self, trade_code):
         msg = self.pctChg(trade_code)
-        if STOCK_COUNT == 1:
+        if self.index == 1:
             return msg
 
     def realTimePrice(self, trade_code):
@@ -61,7 +72,7 @@ class Stocks():
 
     def change(self, trade_code) -> list:
         msg = [f'Monitor {trade_code} run', 
-            'This is the Securities Monitor && sendMail integration ',
+            'This is Monitor && message integration ',
             'Good Lucky!']
         return msg
 
@@ -69,50 +80,30 @@ class Stocks():
     def pctChg(self, trade_code):
         info = self.realTimePrice(trade_code)
         logging.debug(type(info))
-        perent = abs(float(info["pct_chg"])) 
-        if perent > 4.8:
-            STOCK_COUNT += 1
-            return [f"[{info['name']}] change over 5%", "-----", "Pay attention."]
+
+        perent = abs(float(info["pct_chg"]))
+        point = 3
+        if perent > point:
+            self.index += 1
+            return [f"[{info['name']}]", f"Change over {point}%", "-----", "Pay attention."]
         else:
-            STOCK_COUNT_1 = 0
+            self.index = 0
 
         if perent > 9.8:
-            STOCK_COUNT_1 += 1
-            return [f"[{info['name']}] change over 5%", "-----", "Pay attention."]
+            self.index2 += 1
+            return [f"[{info['name']}]", "Change over 10%", "-----", "Pay attention."]
         else:
-            STOCK_COUNT_1 = 0
+            self.index2 = 0
 
-    def test(self, trade_code) -> list:
-        cost = 10
-        number = 100
-        info = self.realTimePrice(trade_code)
-        price = float(info['price'][0])
-        name = info['name'][0]
-        pre_close = float(info['pre_close'][0])
-        date = info['date'][0]
-        time = info['time'][0]
-        change_per_pre = round((price - pre_close) / pre_close * 100, 2)
-        change_per_all = round((price - cost) / cost * 100, 2)
-        market_value = round(number * price, 2)
-        profit = round(market_value - cost * number, 2)
-        if (abs(change_per_pre) >= 2 and abs(change_per_pre) < 4) \
-            or  (abs(change_per_pre) >= 6 and abs(change_per_pre) < 8) \
-                or (abs(change_per_pre) >= 9 and abs(change_per_pre) < 10):
-            content = []
-            content.append('<html>')
-            content.append('Changed')
-            content.append('')
-
-        return content
 
 class Futures():
     def __init__(self) -> None:
-        pass
+        self.index = 0
 
-
+    # @snp.snoop(depth=1, prefix="Futures.main: ")
     def main(self, trade_code):
         msg = self.pctChg(trade_code)
-        if FUTURE_COUNT == 1:
+        if self.index == 1:
             return msg
 
     def realTimePrice(self, trade_code):
@@ -131,36 +122,41 @@ class Futures():
         return info
 
     @decorator_try()
+    # @snp.snoop(depth=1)
     def pctChg(self, trade_code):
         info = self.realTimePrice(trade_code)
         perent_change = round((float(info["current_price"]) - float(info["open_price"])) / float(info["open_price"]) * 100, 2)
-        if abs(perent_change) > 1:
-            return [f"[{info['symbol']}] change over 1%", "Up Up Up!", "Take Action."]
-            logging.debug(msg)
-            FUTURE_COUNT += 1
+        point = 1
+        if abs(perent_change) > point:
+            self.index += 1
+            return [f"[{info['symbol']}]", f"Change over {point}%", "Up Up Up!", "Take Action."]
         else:
-            FUTURE_COUNT = 0 
+            self.index = 0 
 
 
 class Options():
     def __init__(self) -> None:
-        pass
+        self.index = 0
 
+    # @snp.snoop(depth=1, prefix="Options.main: ")
     def main(self, trade_code) -> list:
         if trade_code.isdigit():
-            func = sse_spot
+            func = self.sse_spot
         elif trade_code[:2] == 'io':
-            func = cffex_spot 
+            func = self.cffex_spot 
         else:
             func = self.realTimePrice
 
         msg = self.pctChg(trade_code, func)
-        if OPTION_COUNT == 1:
+        if self.index == 1:
             return msg 
 
     def realTimePrice(self, trade_code):
         df = ak.option_current_em()
+        logging.debug(df)
         df = df.query(f"代码=='{trade_code}'")
+        logging.debug(df)
+
         info ={
             'trade_code' : trade_code,
             'name'       : list(df["名称"])[0],
@@ -180,17 +176,18 @@ class Options():
         symbol = trade_code[:6]
         exercise_price = trade_code[-4:]
         df = ak.option_cffex_hs300_spot_sina(symbol)
-        # df = df.query(f"行权价=='{exercise_price}'")
-        df = df.query(f"看涨合约-标识=='{trade_code}' | 看跌合约-标识=='{trade_code}'")
+        df = df.query(f"行权价=='{exercise_price}'")
+        # df = df.query(f"看涨合约-标识=='{trade_code}' | 看跌合约-标识=='{trade_code}'")
+        logging.debug(df)
         info_call ={
             'name'              : list(df["看涨合约-标识"])[0],
-            'exercise_price'    : list(df["行权价-最新价"])[0],
+            'exercise_price'    : list(df["行权价"])[0],
             'current_price'     : list(df["看涨合约-最新价"])[0],
             'change'            : list(df["看涨合约-涨跌"])[0]
         }
         info_put = {
             'name'              : list(df["看跌合约-标识"])[0],
-            'exercise_price'    : list(df["行权价-最新价"])[0],
+            'exercise_price'    : list(df["行权价"])[0],
             'current_price'     : list(df["看跌合约-最新价"])[0],
             'change'            : list(df["看跌合约-涨跌"])[0],
         }
@@ -208,7 +205,7 @@ class Options():
             'exercise_price'    : float(df["值"][7]),
             'pre_close'         : float(df["值"][8]),
             'open_price'        : float(df["值"][9]),
-            'name'              : float(df["值"][37]),
+            'name'              : df["值"][37],
             'volume'            : float(df["值"][41]),
             'amount'            : float(df["值"][42])
         }
@@ -217,20 +214,32 @@ class Options():
     # @snp.snoop(depth=1, prefix="Options.main: ")
     @decorator_try()
     def pctChg(self, trade_code, func):
-        # info = self.realTimePrice(trade_code)
         info = func(trade_code)
-        if abs(float(info['pct_chg'])) >= 20:
-            return [f"[{info['name']}] change over 20%", "Optunition", "Take Action."]
-            OPTION_COUNT += 1
+        point = 0.1
+        if func == self.cffex_spot:
+            exercise_price = info['exercise_price']
+            change = info['change']
+            pct_chg = round(change /(exercise_price - change) * 100, 2)
+            if abs(pct_chg) >= point:
+                self.index += 1
+                return [f"[{info['name']}]", f"Change over {point}%",  "Good opportunity."]
+            else:
+                self.index = 0
         else:
-            OPTION_COUNT = 0
-    
+            if abs(float(info['pct_chg'])) >= point:
+                return [f"[{info['name']}]", f"Change over {point}%",  "Good opportunity."]
+                self.index += 1
+            else:
+                self.index = 0
+
+        logging.debug(self.index)
+
+
     def change(self, trade_code) -> list:
-        msg = [f'Monitor {trade_code} run', 'This is the Options Monitor && sendMail integration', 'Good Lucky!']
-        return msg
+        return  [f'Monitor {trade_code} run', 'value2', 'value3']
 
 if __name__ == '__main__':
-    # Stocks().main('600675')
-    # Futures().main()
-    Options().main('u2205C432')
+    Stocks().main("600009")
+    Futures().main("IH2206")
+    Options().main('cu2205P72000')
 
