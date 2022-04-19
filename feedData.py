@@ -32,13 +32,111 @@ class AK():
     def __init__(self) -> None:
         pass
     
-    def opt_hs300(self, contract_code) -> DataFrame:
-        hs300_spot = ak.option_sina_cffex_hs300_spot(contract=contract_code)
-        return hs300_spot
+    # Stocks ---------------------------------------------------------
+    def stock_zh_a_spot_em(self, trade_code):
+        df = ak.stock_zh_a_spot_em() # market all stocks 
+        df = df.loc[df['代码'] == trade_code]
+        info ={
+            'trade_code' : trade_code,
+            'name'       : list(df["名称"])[0],
+            'current_price'      : list(df["最新价"])[0],
+            'pct_chg'    : list(df["涨跌幅"])[0],
+            'change'     : list(df["涨跌额"])[0],
+            'vol'        : list(df["成交量"])[0],
+            'amount'     : list(df["成交额"])[0],
+            'open_price' : list(df["今开"])[0],
+            'pre_close'  : list(df["昨收"])[0],
+            'turnover'   : list(df["换手率"])[0],
+        }
+        return info
+
+    def stock_zh_a_hist_min_em(symbol, start_date, end_date, period, adjust):
+        '''获取近期的分时数据，注意时间周期的设置
+        '''
+        df = ak.stock_zh_a_hist_min_em(symbol=symbol, start_date=start_date, end_date=end_date, period=period, adjust=adjust)
+        close_price_newest = df["收盘"][-1]
+        return close_price_newest
+
+    def stock_zh_a_hist_min_sina(symbol, period=, adjust):
+        '''最近交易日的历史分时行情数据
+        '''
+        df = ak.stock_zh_a_minute(symbol=symbol, period=period, adjust=adjust)
+        
+
+
+    # Futures  ---------------------------------------------------------
+    def futures_zh_spot(self, trade_code):
+        df = ak.futures_zh_spot(symbol=trade_code, market="FF", adjust='0')
+        info = {
+            'symbol'        : df['symbol'][0],
+            'time'          : df['time'][0],
+            'open_price'    : df['open'][0],
+            'high'          : df['high'][0],
+            'low'           : df['low'][0],
+            'current_price' : df['current_price'][0],
+            'hold'          : df['hold'][0],
+            'volume'        : df['volume'][0],
+            'amount'        : df['amount'][0],
+        }
+        return info
     
-    def opt_sse(self, contract_code) -> DataFrame:
-        sse_spot = ak.option_sina_sse_spot_price(code=contract_code)
-        return sse_spot
+    # Options  ---------------------------------------------------------
+    def option_zh_spot_em(self, trade_code):
+        df = ak.option_current_em()
+        df = df.query(f"代码=='{trade_code}'")
+        info ={
+            'trade_code' : trade_code,
+            'name'       : list(df["名称"])[0],
+            'pct_chg'    : list(df["涨跌幅"])[0],
+            'change'     : list(df["涨跌额"])[0],
+            'vol'        : list(df["成交量"])[0],
+            'amount'     : list(df["成交额"])[0],
+            'hold'       : list(df["持仓量"])[0],
+            'Current_price'     : list(df["最新价"])[0],
+            'exercise_price'    : list(df["行权价"])[0],
+            'open_price' : list(df["今开"])[0],
+            'pre_close'  : list(df["昨结"])[0],
+        }
+        return info
+
+    def option_zh_cffex_hs300_spot_sina(self, trade_code):
+        symbol = trade_code[:6]
+        exercise_price = trade_code[-4:]
+        df = ak.option_cffex_hs300_spot_sina(symbol)
+        df = df.query(f"行权价=='{exercise_price}'")
+        # df = df.query(f"看涨合约-标识=='{trade_code}' | 看跌合约-标识=='{trade_code}'")
+        logging.debug(df)
+        info_call ={
+            'name'              : list(df["看涨合约-标识"])[0],
+            'exercise_price'    : list(df["行权价"])[0],
+            'current_price'     : list(df["看涨合约-最新价"])[0],
+            'change'            : list(df["看涨合约-涨跌"])[0]
+        }
+        info_put = {
+            'name'              : list(df["看跌合约-标识"])[0],
+            'exercise_price'    : list(df["行权价"])[0],
+            'current_price'     : list(df["看跌合约-最新价"])[0],
+            'change'            : list(df["看跌合约-涨跌"])[0],
+        }
+        if trade_code[-5] == 'C':
+            return info_call
+        elif trade_code[-5] == 'P':
+            return info_put
+
+    def option_zh_sse_spot_sina(self, trade_code):
+        df = ak.option_sse_spot_price_sina(symbol=trade_code)
+        info = {
+            'current_price'     : float(df["值"][2]),
+            'hold'              : float(df["值"][5]),
+            'pct_chg'           : float(df["值"][6]),
+            'exercise_price'    : float(df["值"][7]),
+            'pre_close'         : float(df["值"][8]),
+            'open_price'        : float(df["值"][9]),
+            'name'              : df["值"][37],
+            'volume'            : float(df["值"][41]),
+            'amount'            : float(df["值"][42])
+        }
+        return info 
 
 
 class DT():

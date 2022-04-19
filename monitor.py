@@ -37,7 +37,8 @@ from email.mime.text import MIMEText
 from email.mime.image import MIMEImage
 from email.mime.multipart import MIMEMultipart # Collecting multiple objects
 
-from moniStrategy import Stocks, Futures, Options
+from moniStrategy import Index, Stocks, Futures, Options
+from aksharedata import AKData
 
 logging.basicConfig(level=logging.DEBUG,format='[%(asctime)s] %(filename)s [line:%(lineno)d] \
 [%(levelname)s]  %(message)s', datefmt='%Y-%m-%d(%a) %H:%M:%S')
@@ -317,8 +318,8 @@ class IFTTT():
             "value3": message[2],
         }
         headers = {'Content-Type': "application/json"}
-        response = requests.request("POST", url, data=json.dumps(payload), headers=headers)
-        # response = requests.post(url, json=payload)
+        # response = requests.request("POST", url, data=json.dumps(payload), headers=headers)
+        response = requests.post(url, json=payload)
         logging.info(f"{message[0]} {response.text}")
 
 
@@ -384,7 +385,7 @@ class TradeDateTime():
     def interval_future(self):
         now_localtime = time.strftime("%H:%M:%S", time.localtime())
         now_time = Interval(now_localtime, now_localtime)
-        interval_future_am = Interval("09:00:00", "11:30:00")
+        interval_future_am = Interval("09:25:00", "11:30:00")
         interval_future_pm = Interval("13:00:00", "15:15:00")
         interval_future_nt = Interval("21:00:00", "23:00:00")
 
@@ -398,6 +399,7 @@ class Monitor():
     def __init__(self) -> None:
         self.lock= threading.RLock()
         self.opt_market = {
+            "Index"   : Index,
             "Stocks"  : Stocks,
             "Futures" : Futures,
             "Options" : Options
@@ -433,7 +435,10 @@ class Monitor():
         while tradeTime:
             content = instance.main(tradeCode)
             self.sendMsg(content= content, device=device)
-            time.sleep(10)        
+            time.sleep(10)
+        else:
+            print(f"It's not trade time, exit monitor thread <{symType}-{tradeCode}>.")
+            return
 
     def sendMsg(self, content, device):
         if content:
@@ -444,7 +449,7 @@ class Monitor():
                 # Mail().send(message=content)
                 # IFTTT().send(message=content)
             self.lock.release()
-
+ 
     # @snp.snoop(depth=1, prefix="run: ")
     def run(self, symType, tradeCode, device):
         if symType == 'Futures':
@@ -464,38 +469,27 @@ class Main():
     def __init__(self):
         # initial global variable TRADE_DATE TRADE_TIME_
         TradeDateTime()
-        logging.info(f"TRADE_DATE:{TRADE_DATE},\
-            TRADE_TIME_STOCK:{TRADE_TIME_STOCK},\
-            TRADE_TIME_FUTURE:{TRADE_TIME_FUTURE}")
+        logging.info(f"TRADE_DATE       : {TRADE_DATE}")
+        logging.info(f"TRADE_TIME_STOCK : {TRADE_TIME_STOCK}")
+        logging.info(f"TRADE_TIME_FUTURE: {TRADE_TIME_FUTURE}")
 
         try:
             with open('underlying.json') as j:
                 self.set = json.load(j)
         except:
             self.set = {
-                "Stocks":[
-                    "000001",
-                    "600600"
-                ],
-                "Futures":[
-                    "IH2206"
-                ],
-                "Options":[
-                ]
+                "index"  :["sh000001"],
+                "Stocks" :["000001", "600600"],
+                "Futures":["IH2206"],
+                "Options":[]
             }
         logging.debug(self.set)
 
+        self.index_list = self.set["Index"]
         self.stocks_list = self.set["Stocks"]
         self.futures_list = self.set["Futures"]
         self.options_list = self.set["Options"]
-        self.all_symbols = self.set["Stocks"] + self.set["Futures"] + self.set["Options"]
-
-    def start_stocks_options(self ):
-        self.start(symType="Stocks", symbols=self.stocks_list)
-        self.start(symType="Futures", symbols=self.options_list)
-
-    def start_futures(self):
-        self.start(symType="Options", symbols=self.futures_list)
+        self.all_symbols = self.index_list + self.stocks_list + self.futures_list + self.options_list
 
     def start(self, symType, symbols):
         if not TRADE_DATE:
@@ -519,6 +513,18 @@ class Main():
             # thread.join()
             threads.append(thread)
 
+    def start_notify(self):
+        msg = AKData().suntime()
+        IFTTT().send(msg)
+
+    def start_stocks_options(self ):
+        self.start(symType="Index", symbols=self.index_list)
+        self.start(symType="Stocks", symbols=self.stocks_list)
+        self.start(symType="Options", symbols=self.options_list)
+
+    def start_futures(self):
+        self.start(symType="Futures", symbols=self.futures_list)
+
     # @snp.snoop(depth=1, prefix="test: ")
     def test(self):
         global TRADE_DATE, TRADE_TIME_STOCK, TRADE_TIME_FUTURE
@@ -531,6 +537,7 @@ class Main():
             self.start(symType, symbols)
 
     def sked(self):
+        schedule.every().day.at("06:00").do(self.start_notify)
         schedule.every().day.at("09:30").do(self.start_stocks_options)
         schedule.every().day.at("13:00").do(self.start_stocks_options)
         schedule.every().day.at("09:00").do(self.start_futures)
@@ -546,5 +553,6 @@ class Main():
 
 
 if __name__ == '__main__':
+    # Main().start_notify()
     Main().test()
     # Main().sked()

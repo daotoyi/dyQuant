@@ -24,7 +24,6 @@ def decorator_try():
     def outwrapper(func):
         def wrapper(*args, **kwargs):
             try:
-                logging.debug(len(args))
                 return func( *args, **kwargs)
             except:
                 logging.info(f"functon<{func.__name__}>[{args[0]}]:An unspected error occured.")
@@ -32,6 +31,44 @@ def decorator_try():
         return wrapper
     return outwrapper        
 
+
+class Index():
+    def __init__(self):
+        self.index = 0
+
+    def main(self):
+        msg = self.pctChg(trade_code)
+        if self.index == 1:
+            return msg
+
+    def realTimePrice(self, trade_code):
+        df = ak.stock_zh_index_spot()
+        df = df.loc[df['代码'] == trade_code]
+        info ={
+            'trade_code' : trade_code,
+            'name'       : list(df["名称"])[0],
+            'current_price'      : list(df["最新价"])[0],
+            'pct_chg'    : list(df["涨跌幅"])[0],
+            'change'     : list(df["涨跌额"])[0],
+            'vol'        : list(df["成交量"])[0],
+            'amount'     : list(df["成交额"])[0],
+            'open_price' : list(df["今开"])[0],
+            'pre_close'  : list(df["昨收"])[0],
+            'turnover'   : list(df["换手率"])[0],
+        }
+        return info
+
+    @decorator_try()
+    def pctChg(self, trade_code):
+        info = self.realTimePrice(trade_code)
+
+        perent = abs(float(info["pct_chg"]))
+        point = 1
+        if perent > point:
+            self.index += 1
+            return [f"[{info['name']}]", f"Change over {point}%", "-----", "Pay attention."]
+        else:
+            self.index = 0
 
 class Stocks():
     def __init__(self) -> None:
@@ -66,11 +103,10 @@ class Stocks():
             'amount'     : list(df["成交额"])[0],
             'open_price' : list(df["今开"])[0],
             'pre_close'  : list(df["昨收"])[0],
-            'turnover'   : list(df["换手率"])[0],
         }
         return info
 
-    def change(self, trade_code) -> list:
+    def test(self, trade_code) -> list:
         msg = [f'Monitor {trade_code} run', 
             'This is Monitor && message integration ',
             'Good Lucky!']
@@ -235,7 +271,7 @@ class Options():
         logging.debug(self.index)
 
 
-    def change(self, trade_code) -> list:
+    def test(self, trade_code) -> list:
         return  [f'Monitor {trade_code} run', 'value2', 'value3']
 
 if __name__ == '__main__':
