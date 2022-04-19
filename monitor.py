@@ -455,32 +455,36 @@ class Monitor():
 
     # @snp.snoop(depth=1, prefix="monitor: ")
     def monitor(self, symType, tradeCode, device):
-
         logging.debug(self.opt_market[symType])
-        if symType == 'Stocks':
-            self.monitorCycle(
-                symType=symType, 
-                tradeCode=tradeCode, 
-                device=device,
-                tradeTime=TRADE_TIME_STOCK
-            )
-            TradeDateTime().interval_stock()
-        elif symType == 'Futures':
-            self.monitorCycle(symType=symType, tradeCode=tradeCode, device=device, tradeTime=TRADE_TIME_FUTURE )
-            TradeDateTime().interval_future()
-        elif symType == 'Options':
-            self.monitorCycle(symType=symType, tradeCode=tradeCode, device=device, tradeTime=TRADE_TIME_STOCK )
-            TradeDateTime().interval_stock()
+    #     self.monitorCycle(symType=symType, tradeCode=tradeCode, device=device)
+    #     if symType == 'Index':
+    #         self.monitorCycle(symType=symType, tradeCode=tradeCode, device=device)
+    #     elif symType == 'Stocks':
+    #         self.monitorCycle(symType=symType, tradeCode=tradeCode, device=device)
+    #     elif symType == 'Futures':
+    #         self.monitorCycle(symType=symType, tradeCode=tradeCode, device=device)
+    #     elif symType == 'Options':
+    #         self.monitorCycle(symType=symType, tradeCode=tradeCode, device=device)
 
-    def monitorCycle(self, symType, tradeCode, device, tradeTime):
+    # def monitorCycle(self, symType, tradeCode, device):
         instance = self.opt_market[symType]()
-        while tradeTime:
-            content = instance.main(tradeCode)
-            self.sendMsg(content= content, device=device)
-            time.sleep(10)
-        else:
-            print(f"It's not trade time, exit monitor thread <{symType}-{tradeCode}>.")
+        if symType == "Futures":
+            while TRADE_TIME_FUTURE :
+                content = instance.main(tradeCode)
+                self.sendMsg(content= content, device=device)
+                time.sleep(10)
+                TradeDateTime().interval_future()
+            else:
+                logging.info(f"It's not trade time, exit monitor thread <{symType}-{tradeCode}>.")
             return
+        else:
+            while TRADE_TIME_STOCK :
+                content = instance.main(tradeCode)
+                self.sendMsg(content= content, device=device)
+                time.sleep(10)
+                TradeDateTime().interval_stock()
+            else:
+                logging.info(f"It's not trade time, exit monitor thread <{symType}-{tradeCode}>.")
 
     def sendMsg(self, content, device):
         if content:
@@ -491,19 +495,6 @@ class Monitor():
                 # Mail().send(message=content)
                 # IFTTT().send(message=content)
             self.lock.release()
- 
-    # @snp.snoop(depth=1, prefix="run: ")
-    def run(self, symType, tradeCode, device):
-        if symType == 'Futures':
-            while TRADE_TIME_FUTURE:
-                self.monitor(symType, tradeCode, device)
-                time.sleep(10) 
-                TradeDateTime().interval_future()
-        else: # stocks and options trade
-            while TRADE_TIME_STOCK:
-                self.monitor(symType, tradeCode, device)
-                time.sleep(10) 
-                TradeDateTime().interval_stock()
 
 
 # @snp.snoop(depth=1, prefix="main: ")
@@ -549,6 +540,9 @@ class Main():
         threads = []
         func = Monitor().monitor
         for symbol in symbols:
+            #  TODO
+            if symType == "Index":
+                continue
             thread = threading.Thread(target=func, args=(symType, symbol, device))
             logging.info(f'Run thread <{symType}-{symbol}>')
             thread.start()

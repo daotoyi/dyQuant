@@ -36,7 +36,7 @@ class Index():
     def __init__(self):
         self.index = 0
 
-    def main(self):
+    def main(self, trade_code):
         msg = self.pctChg(trade_code)
         if self.index == 1:
             return msg
