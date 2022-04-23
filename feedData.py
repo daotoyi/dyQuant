@@ -57,7 +57,7 @@ class AK():
         close_price_newest = df["收盘"][-1]
         return close_price_newest
 
-    def stock_zh_a_hist_min_sina(symbol, period=, adjust):
+    def stock_zh_a_hist_min_sina(symbol, period, adjust):
         '''最近交易日的历史分时行情数据
         '''
         df = ak.stock_zh_a_minute(symbol=symbol, period=period, adjust=adjust)

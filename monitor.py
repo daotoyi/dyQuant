@@ -309,14 +309,18 @@ class Mail():
 
         # smtp.set_debuglevel(1)
         smtp.login(sender, passwd)
-        smtp.sendmail(sender, receivers, msg.as_string())
+        try:
+            smtp.sendmail(sender, receivers, msg.as_string())
+            logging.info(f"Email: {message[0]} {message[1]} {message[2]}")
+        except:
+            logging.info(f"Mail: an unexpected error occured - {message[0]}")
         smtp.quit()
 
     def qq(self):
         server = 'smtp.qq.com'
-        sender = '1392429831@qq.com'
+        sender = 'daotoyi@foxmail.com'
         code_authorize = 'mnfujkpwytseijjd' # 139
-        receivers = ['daotoyi@outlook.com', 'wenhua_s@yeah.net']
+        receivers = ['daotoyi@foxmail.com', 'wenhua_s@yeah.net']
         port = 465 #? or 587
         return server, sender, code_authorize, receivers, port
 
@@ -324,7 +328,7 @@ class Mail():
         server = 'smtp.office365.com' 
         sender = 'daotoyi@outlook.com'
         passwd = os.environ.get('PASSWD')   # password
-        receivers = '1392429831@qq.com'
+        receivers = 'daotoyi@foxmail.com'
         port = 587
         return server, sender, passwd, receivers, port
 
@@ -370,8 +374,11 @@ class Toast():
         headers = message[0]
         text = message[1:]
         toaster = ToastNotifier()
-        # toaster.show_toast('title', 'msg', duration=10, threaded=True)
-        toaster.show_toast(f"{header}", f"{text}", icon_path="img/toast.ico", duration=5, threaded=True)
+        try:
+            toaster.show_toast(f"{headers}", f"{text}", icon_path="img/toast.ico", duration=10, threaded=True)
+            # time.sleep(5) # avoid conflict WNDCLASS. ## 'ToastNotifier' object has no attribute 'classAtom'
+        except:
+            logging.info(f"Toast: an unexpected error occured - {message[0]}")
 
 
 class TradeDateTime():
@@ -427,7 +434,7 @@ class TradeDateTime():
     def interval_future(self):
         now_localtime = time.strftime("%H:%M:%S", time.localtime())
         now_time = Interval(now_localtime, now_localtime)
-        interval_future_am = Interval("09:25:00", "11:30:00")
+        interval_future_am = Interval("09:00:00", "11:30:00")
         interval_future_pm = Interval("13:00:00", "15:15:00")
         interval_future_nt = Interval("21:00:00", "23:00:00")
 
@@ -439,7 +446,7 @@ class TradeDateTime():
 
 class Monitor():
     def __init__(self) -> None:
-        self.lock= threading.RLock()
+        self.lock= threading.RLock() 
         self.opt_market = {
             "Index"   : Index,
             "Stocks"  : Stocks,
@@ -448,7 +455,7 @@ class Monitor():
         }
         self.opt_device = {
             'WeChat' : WeChat,
-            'Mial'   : Mail,
+            'Mail'   : Mail,
             'Toast'  : Toast, ## [Toast().toast()] Thread  [Monitor().run], raise ERROR[no attribute 'classAtom'].
             'IFTTT'  : IFTTT
         }
@@ -469,31 +476,46 @@ class Monitor():
     # def monitorCycle(self, symType, tradeCode, device):
         instance = self.opt_market[symType]()
         if symType == "Futures":
+            # TradeDateTime().interval_future()
             while TRADE_TIME_FUTURE :
                 content = instance.main(tradeCode)
                 self.sendMsg(content= content, device=device)
                 time.sleep(10)
                 TradeDateTime().interval_future()
             else:
-                logging.info(f"It's not trade time, exit monitor thread <{symType}-{tradeCode}>.")
+                logging.info(f"<== It's not trade time, exit monitor thread <{symType}-{tradeCode}>.")
             return
         else:
+            TradeDateTime().interval_stock()
             while TRADE_TIME_STOCK :
                 content = instance.main(tradeCode)
                 self.sendMsg(content= content, device=device)
                 time.sleep(10)
                 TradeDateTime().interval_stock()
             else:
-                logging.info(f"It's not trade time, exit monitor thread <{symType}-{tradeCode}>.")
+                logging.info(f"<== It's not trade time, exit monitor thread <{symType}-{tradeCode}>.")
 
     def sendMsg(self, content, device):
         if content:
             self.lock.acquire()
-            self.opt_device[device]().send(message=content)
+            # self.opt_device[device]().send(message=content)
+            if device == 'Toast':
+                global TOAST_STATUS
+                while True:
+                    if not TOAST_STATUS:
+                        time.sleep(1)
+                        break
+                inst_toast = ToastNotifier()
+                inst_toast.send(message=content)
+
+                TOAST_STATUS = inst_toast.wc
+            else:
+                self.opt_device[device]().send(message=content)
                 # Toast().send(message=content)
                 # WeChat().send(message=content)
                 # Mail().send(message=content)
                 # IFTTT().send(message=content)
+            time.sleep(1)
             self.lock.release()
 
 
@@ -514,7 +536,7 @@ class Main():
                 "index"  :["sh000001"],
                 "Stocks" :["000001", "600600"],
                 "Futures":["IH2206"],
-                "Options":[]
+                "Options":["io2202P4800", "10004199", "cu2205P72000"]
             }
         logging.debug(self.set)
 
@@ -535,7 +557,7 @@ class Main():
         now_datetime = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
         logging.info(f'==> <{now_datetime}> Monitor:')
 
-        device = 'IFTTT' # IFTTT, WeCaht, Mail, Toast
+        device = 'Toast' # IFTTT, WeChat, WechatPubMail, QQ, Mail, Toast
         os.environ['NUMEXPR_MAX_THREADS'] = '8'
         threads = []
         func = Monitor().monitor
@@ -549,7 +571,7 @@ class Main():
             # thread.join()
             threads.append(thread)
 
-    def start_notify(self):
+    def start_suntime(self):
         msg = AKData().suntime()
         IFTTT().send(msg)
 
@@ -573,7 +595,7 @@ class Main():
             self.start(symType, symbols)
 
     def sked(self):
-        schedule.every().day.at("06:00").do(self.start_notify)
+        schedule.every().day.at("06:00").do(self.start_suntime)
         schedule.every().day.at("09:30").do(self.start_stocks_options)
         schedule.every().day.at("13:00").do(self.start_stocks_options)
         schedule.every().day.at("09:00").do(self.start_futures)
@@ -589,6 +611,6 @@ class Main():
 
 
 if __name__ == '__main__':
-    # Main().start_notify()
+    # Monitor().sendMsg(['titile','value1','value2'], "Toast")
     Main().test()
     # Main().sked()
