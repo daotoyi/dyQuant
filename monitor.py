@@ -11,7 +11,6 @@ import pandas as pd
 import pysnooper as snp
 import trading_calendars as tc
 from pysnooper.utils import shitcode
-from win10toast import ToastNotifier
 import logging
 import schedule
 import requests
@@ -23,13 +22,6 @@ import threading
 import schedule
 
 import pywinauto
-import pyautogui
-import win32gui
-import win32con
-import win32api
-import win32clipboard
-import PIL
-from PyQt5 import QtWidgets, QtCore
 
 import smtplib, ssl
 from email.header import Header
@@ -46,134 +38,6 @@ logging.basicConfig(level=logging.DEBUG,format='[%(asctime)s] %(filename)s [line
 # logging.basicConfig(
 #     level=logging.DEBUG,format='[%(asctime)s] [%(levelname)s] %(message)s', datefmt='%Y-%m-%d %H:%M:%S'
 # )
-class WeChat():
-    def __init__(self, exeName: str='WeChat.exe') -> None:
-        pid = self.getPID(exeName)
-        self.win = self.getWindow(pid)
-
-    def getPID(self, exeName: str):
-        for proc in psutil.process_iter():
-            try:
-                pinfo = proc.as_dict(attrs=['pid', 'name'])
-            except psutil.NoSuchProcess:
-                pass
-            else:
-                if exeName == pinfo['name']:
-                    PID = pinfo['pid']
-        return PID
-
-    def getWindow(self, pid: int):
-        app = pywinauto.application.Application(backend='uia').connect(process=pid)
-        # app = Application(backend="uia").start(r'C:\Program Files (x86)\Tencent\WeChat\WeChat.exe')
-
-        window = app.window(class_name='WeChatMainWndForPC')
-        # window = app['微信测试版']
-        return window
-
-    def send(self, message, userName: str='daotoyi', msgType: str='Text'):
-        self.searchUser(userName)
-
-        def sendText(msg):
-            # self.win.type_keys(msg)
-            self.sendToClip(dataType=win32con.CF_UNICODETEXT, data=msg)
-            time.sleep(1)
-            pyautogui.hotkey('ctrl', 'v')
-            pyautogui.hotkey('enter')
-
-        def sendImage(msg):
-            imag = PIL.Image.open(msg)
-            output = io.BytesIO()
-            imag.save(output, 'BMP')
-            data = output.getvalue()[14:]
-            output.close()
-            self.sendToClip(dataType=win32clipboard.CF_DIB, data=data)
-            time.sleep(1)
-            pyautogui.hotkey('ctrl', 'v')
-            pyautogui.hotkey('enter')
-
-        def sendImage2(msg):
-            img=PIL.Image.open(msg)
-            img.save('tmp.bmp')
-            image = ctypes.windll.user32.LoadImageW(0, r"tmp.bmp", win32con.IMAGE_BITMAP, 0, 0, win32con.LR_LOADFROMFILE)
-            if image != 0: ## because of encode, if open failed, return 0
-                self.sendToClip(dataType=win32con.CF_BITMAP, data=image)
-            time.sleep(1)
-            pyautogui.hotkey('ctrl', 'v')
-            pyautogui.hotkey('enter')
-
-        def sendFile(msg):
-            # todo need fix
-            def file(msg):
-                app = QtWidgets.QApplication([])
-                data = QtCore.QMimeData()
-                url = QtCore.QUrl.fromLocalFile(msg)
-                data.setUrls([url])
-                clipboard = QtWidgets.QApplication.clipboard()
-                time.sleep(1)
-                pyautogui.hotkey('ctrl', 'v')
-                pyautogui.hotkey('enter')
-
-            thread = threading.Thread(target=file, args=(msg,)) #! args parameter distinguish with ","
-            thread.start()
-
-        option = {
-            'Text'  :sendText,
-            'Image' :sendImage,
-            'Image2':sendImage2,
-            'File'  :sendFile
-        }
-        option[msgType](msg=message)
-
-    def searchUser(self, userName):
-        hwnd = win32gui.FindWindow('WeChatMainWndForPC', '微信测试版')  # class and title
-        win32gui.SetForegroundWindow(hwnd) # place the window to top
-        self.sendToClip(dataType=win32con.CF_UNICODETEXT, data=userName)
-        time.sleep(1)
-
-        def CtrlF():
-            win32api.keybd_event(17, 0, 0, 0)  # ctrl keyCode: 17
-            win32api.keybd_event(70, 0, 0, 0)  # F    keyCode: 70
-            win32api.keybd_event(70, 0, win32con.KEYEVENTF_KEYUP, 0)
-            win32api.keybd_event(17, 0, win32con.KEYEVENTF_KEYUP, 0)
-
-        def CtrlV():
-            win32api.keybd_event(17,0,0,0) # ctrl keyCode: 17
-            win32api.keybd_event(86,0,0,0) # v    keyCode: 86
-            win32api.keybd_event(86,0,win32con.KEYEVENTF_KEYUP,0) # release key
-            win32api.keybd_event(17,0,win32con.KEYEVENTF_KEYUP,0)
-        
-        def AltS(): 
-            win32api.keybd_event(18, 0, 0, 0)   # Alt : 18 
-            win32api.keybd_event(83, 0, 0, 0)   # S   :83
-            win32api.keybd_event(83,0,win32con.KEYEVENTF_KEYUP,0) 
-            win32api.keybd_event(18,0,win32con.KEYEVENTF_KEYUP,0)
-
-        def Enter():
-            win32api.keybd_event(13, 0, 0, 0)  # enter key
-            win32api.keybd_event(13, 0, win32con.KEYEVENTF_KEYUP, 0)
-
-        CtrlF()
-        #pyautogui.hotkey('ctrl', 'f')
-        CtrlV()
-        #pyautogui.hotkey('ctrl', 'v')
-
-        time.sleep(1)
-        #Enter()
-        pyautogui.press('enter')
-
-    def sendToClip(self, dataType, data):
-        """
-        :param dataType: 
-            Text: win32con.CF_UNICODETEXT
-            File:
-            Image: win32clipboard.CF_DIB
-        :param msg: content to clipbaord
-        """
-        win32clipboard.OpenClipboard()
-        win32clipboard.EmptyClipboard()
-        win32clipboard.SetClipboardData(dataType, data)
-        win32clipboard.CloseClipboard()
-
 
 class WeChatPub():
     s = requests.session()
@@ -216,29 +80,6 @@ class WeChatPub():
             return
         return json.loads(rep.content)
 
-
-class QQ():
-    def send(self, userName, msg):
-
-        def _sendToClip():
-            win32clipboard.OpenClipboard()
-            win32clipboard.EmptyClipboard()
-            win32clipboard.SetClipboardData(win32con.CF_UNICODETEXT, msg)
-            win32clipboard.CloseClipboard()
-
-        _sendToClip()
-        handle = win32gui.FindWindow(None, userName) # get window handle
-        win32gui.SendMessage(handle, 770, 0, 0) # fill msg 
-        win32gui.SendMessage(handle, win32con.WM_KEYDOWN, win32con.VK_RETURN, 0) # enter to send msg
-
-        def sendAlways():
-            while True:
-                win32gui.SendMessage(handle, 770, 0, 0)
-                win32gui.SendMessage(handle, win32con.WM_KEYDOWN, win32con.VK_RETURN, 0)
-                time.sleep(5)
-
-        #? sendAlways()
-
 class SMS():
     def send(self, msg):
         from twilio.rest import Client
@@ -249,7 +90,7 @@ class SMS():
         client = Client(account_sid, auth_token)
 
         message = client.messages.create(
-            to="+8618500353930", 
+            to="+8618500353930",
             from_="+17249874721",
             #body="Hello from Python!"
             body=msg
@@ -325,7 +166,7 @@ class Mail():
         return server, sender, code_authorize, receivers, port
 
     def outlook(self):
-        server = 'smtp.office365.com' 
+        server = 'smtp.office365.com'
         sender = 'daotoyi@outlook.com'
         passwd = os.environ.get('PASSWD')   # password
         receivers = 'daotoyi@foxmail.com'
@@ -369,18 +210,6 @@ class IFTTT():
         logging.info(f"{message[0]} {response.text}")
 
 
-class Toast():
-    def send(self, message):
-        headers = message[0]
-        text = message[1:]
-        toaster = ToastNotifier()
-        try:
-            toaster.show_toast(f"{headers}", f"{text}", icon_path="img/toast.ico", duration=10, threaded=True)
-            # time.sleep(5) # avoid conflict WNDCLASS. ## 'ToastNotifier' object has no attribute 'classAtom'
-        except:
-            logging.info(f"Toast: an unexpected error occured - {message[0]}")
-
-
 class TradeDateTime():
     # @snp.snoop(depth=1, prefix="__init__: ")
     def __init__(self) -> None:
@@ -417,7 +246,7 @@ class TradeDateTime():
             TRADE_TIME_STOCK = False
         else:
             TRADE_TIME_STOCK = True
-   
+
     # @snp.snoop(depth=1, prefix="interval_stock: ")
     def interval_stock(self):
         now_localtime = time.strftime("%H:%M:%S", time.localtime())
@@ -446,7 +275,7 @@ class TradeDateTime():
 
 class Monitor():
     def __init__(self) -> None:
-        self.lock= threading.RLock() 
+        self.lock= threading.RLock()
         self.opt_market = {
             "Index"   : Index,
             "Stocks"  : Stocks,
@@ -534,7 +363,7 @@ class Main():
         self.futures_list = self.set["Futures"]
         self.options_list = self.set["Options"]
         self.all_symbols = self.index_list + self.stocks_list + self.futures_list + self.options_list
-        
+
         self.device = 'IFTTT' # IFTTT, WeChat, WechatPubMail, QQ, Mail, Toast
 
     def start(self, symType, symbols):
@@ -577,10 +406,10 @@ class Main():
     def test(self):
         global TRADE_DATE, TRADE_TIME_STOCK, TRADE_TIME_FUTURE
         TRADE_DATE = True
-        TRADE_TIME_STOCK = True 
+        TRADE_TIME_STOCK = True
         TRADE_TIME_FUTURE = True
         logging.debug(globals())
-        
+
         for symType, symbols in self.set.items():
             self.start(symType, symbols)
 
@@ -601,7 +430,6 @@ class Main():
 
 
 if __name__ == '__main__':
-    # Monitor().sendMsg(['titile','value1','value2'], "Toast")
     # Main().test()
     Main().sked()
- 
+

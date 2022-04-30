@@ -1,0 +1,14 @@
+__pycache__/
+tmp/
+vnpy/
+img/ 
+strategy/ 
+aksharedata.py
+aksharetool.py
+akshareinterface.py 
+backtest.py
+dyRun.py
+feeddata.py
+pyQt5Template.py
+tqsdktool.py
+requirements.txt
