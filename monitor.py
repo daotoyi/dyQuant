@@ -9,7 +9,8 @@ import datetime, time
 from interval import Interval
 import pandas as pd
 import pysnooper as snp
-import trading_calendars as tc
+#  import trading_calendars as tc
+from chinese_calendar import is_workday
 from pysnooper.utils import shitcode
 import logging
 import schedule
@@ -30,7 +31,7 @@ from email.mime.image import MIMEImage
 from email.mime.multipart import MIMEMultipart # Collecting multiple objects
 
 from moniStrategy import Index, Stocks, Futures, Options
-from aksharedata import AKData
+#  from aksharedata import AKData
 
 logging.basicConfig(level=logging.DEBUG,format='[%(asctime)s] %(filename)s [line:%(lineno)d] \
 [%(levelname)s]  %(message)s', datefmt='%Y-%m-%d(%a) %H:%M:%S')
@@ -197,7 +198,8 @@ class Mail():
 class IFTTT():
     def send(self, message):
         event_name  = 'dyQuant'
-        key = 'bMhBKbwkXMxADTWok23HtB'
+        #  key = 'bMhBKbwkXMxADTWok23HtB'
+        key = 'cZjM03tkmQ6Wva03mfkKKL'
         url = f"https://maker.ifttt.com/trigger/{event_name}/with/key/{key}"
         payload = {
             "value1": message[0],
@@ -221,11 +223,19 @@ class TradeDateTime():
         global TRADE_TIME_STOCK
         global TRADE_TIME_FUTURE
 
-        sse = tc.get_calendar("SSE")
-        TRADE_DATE = sse.is_session(pd.Timestamp(self.now_date))
+        #  sse = tc.get_calendar("SSE")
+        #  TRADE_DATE = sse.is_session(pd.Timestamp(self.now_date))
+        TRADE_DATE = self.trade_date()
 
         self.interval_stock()
         self.interval_future()
+
+    def trade_date(self):
+        date = datetime.datetime.strptime(self.now_date, '%Y-%m-%d').date()
+        if is_workday(date):
+            if date.isoweekday() < 6:
+                return True
+        return False
 
     # @snp.snoop(depth=1, prefix="tradeTime: ")
     def tradeTime(self):
@@ -283,10 +293,9 @@ class Monitor():
             "Options" : Options
         }
         self.opt_device = {
-            'WeChat' : WeChat,
-            'Mail'   : Mail,
-            'Toast'  : Toast, ## [Toast().toast()] Thread  [Monitor().run], raise ERROR[no attribute 'classAtom'].
-            'IFTTT'  : IFTTT
+            'WeChatPub'  : WeChatPub,
+            'Mail'       : Mail,
+            'IFTTT'      : IFTTT
         }
 
     # @snp.snoop(depth=1, prefix="monitor: ")
@@ -430,6 +439,6 @@ class Main():
 
 
 if __name__ == '__main__':
-    # Main().test()
-    Main().sked()
+    Main().test()
+    #  Main().sked()
 

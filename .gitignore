@@ -2,7 +2,6 @@ __pycache__/
 tmp/
 vnpy/
 img/ 
-strategy/ 
 aksharedata.py
 aksharetool.py
 akshareinterface.py 
