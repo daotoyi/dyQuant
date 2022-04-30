@@ -463,17 +463,6 @@ class Monitor():
     # @snp.snoop(depth=1, prefix="monitor: ")
     def monitor(self, symType, tradeCode, device):
         logging.debug(self.opt_market[symType])
-    #     self.monitorCycle(symType=symType, tradeCode=tradeCode, device=device)
-    #     if symType == 'Index':
-    #         self.monitorCycle(symType=symType, tradeCode=tradeCode, device=device)
-    #     elif symType == 'Stocks':
-    #         self.monitorCycle(symType=symType, tradeCode=tradeCode, device=device)
-    #     elif symType == 'Futures':
-    #         self.monitorCycle(symType=symType, tradeCode=tradeCode, device=device)
-    #     elif symType == 'Options':
-    #         self.monitorCycle(symType=symType, tradeCode=tradeCode, device=device)
-
-    # def monitorCycle(self, symType, tradeCode, device):
         instance = self.opt_market[symType]()
         if symType == "Futures":
             # TradeDateTime().interval_future()
@@ -500,6 +489,7 @@ class Monitor():
             self.lock.acquire()
             # self.opt_device[device]().send(message=content)
             if device == 'Toast':
+                # TODO?
                 global TOAST_STATUS
                 while True:
                     if not TOAST_STATUS:
@@ -538,13 +528,14 @@ class Main():
                 "Futures":["IH2206"],
                 "Options":["io2202P4800", "10004199", "cu2205P72000"]
             }
-        logging.debug(self.set)
 
         self.index_list = self.set["Index"]
         self.stocks_list = self.set["Stocks"]
         self.futures_list = self.set["Futures"]
         self.options_list = self.set["Options"]
         self.all_symbols = self.index_list + self.stocks_list + self.futures_list + self.options_list
+        
+        self.device = 'IFTTT' # IFTTT, WeChat, WechatPubMail, QQ, Mail, Toast
 
     def start(self, symType, symbols):
         if not TRADE_DATE:
@@ -557,7 +548,6 @@ class Main():
         now_datetime = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
         logging.info(f'==> <{now_datetime}> Monitor:')
 
-        device = 'Toast' # IFTTT, WeChat, WechatPubMail, QQ, Mail, Toast
         os.environ['NUMEXPR_MAX_THREADS'] = '8'
         threads = []
         func = Monitor().monitor
@@ -565,7 +555,7 @@ class Main():
             #  TODO
             if symType == "Index":
                 continue
-            thread = threading.Thread(target=func, args=(symType, symbol, device))
+            thread = threading.Thread(target=func, args=(symType, symbol, self.device))
             logging.info(f'Run thread <{symType}-{symbol}>')
             thread.start()
             # thread.join()
@@ -612,5 +602,6 @@ class Main():
 
 if __name__ == '__main__':
     # Monitor().sendMsg(['titile','value1','value2'], "Toast")
-    Main().test()
-    # Main().sked()
+    # Main().test()
+    Main().sked()
+ 
