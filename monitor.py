@@ -361,7 +361,7 @@ class Main():
                 self.set = json.load(j)
         except:
             self.set = {
-                "index"  :["sh000001"],
+                "Index"  :["sh000001"],
                 "Stocks" :["000001", "600600"],
                 "Futures":["IH2206"],
                 "Options":["io2202P4800", "10004199", "cu2205P72000"]
@@ -439,6 +439,6 @@ class Main():
 
 
 if __name__ == '__main__':
-    Main().test()
-    #  Main().sked()
+    #  Main().test()
+    Main().sked()
 
